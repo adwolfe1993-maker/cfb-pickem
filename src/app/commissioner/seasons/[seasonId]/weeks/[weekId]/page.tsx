@@ -21,6 +21,7 @@ type Week = {
   id: string
   name: string
   week_number: number
+  status: string
 }
 
 type SavedGame = {
@@ -39,6 +40,7 @@ export default function WeekDetailPage({
 }) {
   const { seasonId, weekId } = use(params)
   const [week, setWeek] = useState<Week | null>(null)
+  const [seasonStatus, setSeasonStatus] = useState<string | null>(null)
   const [savedGames, setSavedGames] = useState<SavedGame[]>([])
   const [cfbdGames, setCfbdGames] = useState<CfbdGame[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -48,13 +50,15 @@ export default function WeekDetailPage({
   const [loading, setLoading] = useState(true)
   const [fetchingGames, setFetchingGames] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [activating, setActivating] = useState(false)
   const [error, setError] = useState('')
 
   const supabase = createClient()
 
   const loadData = async () => {
-    const [weekRes, gamesRes] = await Promise.all([
-      supabase.from('weeks').select('id, name, week_number').eq('id', weekId).single(),
+    const [weekRes, seasonRes, gamesRes] = await Promise.all([
+      supabase.from('weeks').select('id, name, week_number, status').eq('id', weekId).single(),
+      supabase.from('seasons').select('status').eq('id', seasonId).single(),
       supabase
         .from('games')
         .select('id, api_game_id, away_team, home_team, kickoff_time, game_of_week')
@@ -64,6 +68,9 @@ export default function WeekDetailPage({
 
     if (weekRes.error) setError(weekRes.error.message)
     else setWeek(weekRes.data)
+
+    if (seasonRes.error) setError(seasonRes.error.message)
+    else setSeasonStatus(seasonRes.data?.status ?? null)
 
     if (gamesRes.error) setError(gamesRes.error.message)
     else setSavedGames(gamesRes.data ?? [])
@@ -142,6 +149,31 @@ export default function WeekDetailPage({
     setSaving(false)
   }
 
+  // Activating a week also activates its season, if not already — a week
+  // can't meaningfully be "on" while its season is still in `upcoming`.
+  // What this deliberately does NOT handle yet: what happens to a
+  // previously-active week when a new one is activated (e.g. should it
+  // auto-complete?). With only one week to test against right now, that
+  // behavior is better decided once there's a real second week to verify
+  // it against, rather than guessed at here.
+  const handleActivateWeek = async () => {
+    setActivating(true)
+    setError('')
+
+    const [seasonUpdate, weekUpdate] = await Promise.all([
+      seasonStatus !== 'active'
+        ? supabase.from('seasons').update({ status: 'active' }).eq('id', seasonId)
+        : Promise.resolve({ error: null }),
+      supabase.from('weeks').update({ status: 'active' }).eq('id', weekId),
+    ])
+
+    if (seasonUpdate.error) setError(seasonUpdate.error.message)
+    else if (weekUpdate.error) setError(weekUpdate.error.message)
+    else loadData()
+
+    setActivating(false)
+  }
+
   if (loading) {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 py-12">
@@ -160,8 +192,35 @@ export default function WeekDetailPage({
         >
           ← Back to Season
         </Link>
-        <h1 className="text-2xl font-semibold">{week?.name}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">{week?.name}</h1>
+          <Badge variant={week?.status === 'active' ? 'default' : 'outline'}>
+            {week?.status}
+          </Badge>
+        </div>
       </div>
+
+      {/* Activate control */}
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4 py-4">
+          <div className="text-sm text-muted-foreground">
+            {week?.status === 'active' ? (
+              <span>This week is live — participants can see and submit picks now.</span>
+            ) : (
+              <span>
+                This week is still <strong>{week?.status}</strong> — participants can&apos;t see
+                or pick it until it&apos;s activated.
+                {seasonStatus !== 'active' && ' Activating will also mark the season as active.'}
+              </span>
+            )}
+          </div>
+          {week?.status !== 'active' && (
+            <Button onClick={handleActivateWeek} disabled={activating || savedGames.length === 0}>
+              {activating ? 'Activating...' : 'Activate Week'}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Saved slate */}
       <div className="flex flex-col gap-2">

@@ -1,3 +1,5 @@
+import BuckLogo from './BuckLogo'
+
 const YARD_LABELS = ['10', '20', '30', '40', '50', '40', '30', '20', '10']
 
 // Mowed stripes mirror outward from the 50-yard line — the two segments
@@ -11,7 +13,11 @@ export default function FootballField() {
       className="pointer-events-none absolute inset-0 flex flex-row overflow-hidden"
     >
       {/* Left end zone */}
-      <div className="w-20 shrink-0 bg-[oklch(0.32_0.09_258_/_85%)] sm:w-24" />
+      <div className="relative flex w-20 shrink-0 items-center justify-center bg-primary/85 sm:w-24">
+        <span className="origin-center -rotate-90 whitespace-nowrap text-2xl font-extrabold uppercase tracking-widest text-accent sm:text-3xl">
+          The Buck
+        </span>
+      </div>
 
       {/* Playing field: 10 mirrored 10-yard segments */}
       <div className="relative flex flex-1 flex-row">
@@ -28,7 +34,10 @@ export default function FootballField() {
           />
         ))}
 
-        {/* Yard lines + numbers, positioned at each 10-yard boundary */}
+        {/* Yard lines + numbers, positioned at each 10-yard boundary.
+            Top row is always upright, bottom row is always rotated 180° —
+            each row is readable from its own sideline, consistently along
+            the full field length (not split at midfield). */}
         {YARD_LABELS.map((label, i) => {
           const leftPercent = ((i + 1) / 10) * 100
           return (
@@ -38,19 +47,12 @@ export default function FootballField() {
               style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
             >
               <div className="h-full w-[3px] bg-white/60" />
-              <span
-                className="absolute top-6 select-none text-3xl font-bold text-white/50 sm:top-12 sm:text-5xl"
-                style={{
-                  transform: i >= 5 ? 'rotate(180deg)' : undefined,
-                }}
-              >
+              <span className="absolute top-6 select-none text-3xl font-bold text-white/50 sm:top-12 sm:text-5xl">
                 {label}
               </span>
               <span
                 className="absolute bottom-6 select-none text-3xl font-bold text-white/50 sm:bottom-12 sm:text-5xl"
-                style={{
-                  transform: i >= 5 ? 'rotate(180deg)' : undefined,
-                }}
+                style={{ transform: 'rotate(180deg)' }}
               >
                 {label}
               </span>
@@ -58,20 +60,40 @@ export default function FootballField() {
           )
         })}
 
-        {/* Hash marks every 5 yards (short ticks flanking the center) */}
+        {/* Hash marks every 5 yards — two rows running the length of the
+            field, inbound from each sideline. */}
         {Array.from({ length: 19 }).map((_, i) => {
           const leftPercent = ((i + 1) / 20) * 100
           if ((i + 1) % 2 === 0) return null // skip where a full yard line already exists
           return (
-            <div key={`hash-${i}`} className="absolute inset-y-0" style={{ left: `${leftPercent}%` }}>
-              <div className="my-auto h-10 w-[2px] bg-white/35 sm:h-16" />
+            <div key={`hash-${i}`} style={{ position: 'absolute', left: `${leftPercent}%` }}>
+              <div
+                className="absolute h-8 w-[3px] -translate-y-1/2 bg-white/70 sm:h-12"
+                style={{ top: '30%' }}
+              />
+              <div
+                className="absolute h-8 w-[3px] -translate-y-1/2 bg-white/70 sm:h-12"
+                style={{ top: '70%' }}
+              />
             </div>
           )
         })}
+
+        {/* Logo marks at each 25-yard line, staggered top/bottom so they don't collide */}
+        <div className="absolute top-[22%] left-[25%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 opacity-90 drop-shadow-lg sm:h-32 sm:w-32">
+          <BuckLogo className="h-full w-full" />
+        </div>
+        <div className="absolute top-[78%] left-[75%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 opacity-90 drop-shadow-lg sm:h-32 sm:w-32">
+          <BuckLogo className="h-full w-full" />
+        </div>
       </div>
 
       {/* Right end zone */}
-      <div className="w-20 shrink-0 bg-[oklch(0.32_0.09_258_/_85%)] sm:w-24" />
+      <div className="relative flex w-20 shrink-0 items-center justify-center bg-primary/85 sm:w-24">
+        <span className="origin-center rotate-90 whitespace-nowrap text-2xl font-extrabold uppercase tracking-widest text-accent sm:text-3xl">
+          Stops Here
+        </span>
+      </div>
 
       {/* Vignette so the card stays readable */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-black/10 to-black/40" />

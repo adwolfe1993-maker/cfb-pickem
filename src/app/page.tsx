@@ -49,6 +49,13 @@ export default async function HomePage() {
             </p>
           </div>
 
+          <Link
+            href="/picks"
+            className="text-sm font-medium text-primary underline underline-offset-4"
+          >
+            This Week&apos;s Picks →
+          </Link>
+
           {profile?.role === 'commissioner' && (
             <Link
               href="/commissioner/seasons"

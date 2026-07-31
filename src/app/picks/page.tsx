@@ -26,7 +26,10 @@ type Pick = {
   game_id: string
   picked_team: string
   is_double_or_nothing: boolean
+  confidence_points: number | null
 }
+
+const CONFIDENCE_VALUES = [9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 export default function PicksPage() {
   const [loading, setLoading] = useState(true)
@@ -106,7 +109,7 @@ export default function PicksPage() {
       gameIds.length > 0
         ? await supabase
             .from('picks')
-            .select('game_id, picked_team, is_double_or_nothing')
+            .select('game_id, picked_team, is_double_or_nothing, confidence_points')
             .eq('user_id', user.id)
             .in('game_id', gameIds)
         : { data: [] }
@@ -201,7 +204,7 @@ export default function PicksPage() {
         },
         { onConflict: 'user_id,game_id' }
       )
-      .select('game_id, picked_team, is_double_or_nothing')
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
       .single()
 
     if (error) {
@@ -252,7 +255,39 @@ export default function PicksPage() {
       .update({ is_double_or_nothing: !turningOff })
       .eq('user_id', userId)
       .eq('game_id', gameId)
-      .select('game_id, picked_team, is_double_or_nothing')
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
+      .single()
+
+    if (error) {
+      setError(error.message)
+    } else if (data) {
+      setPicks((prev) => ({ ...prev, [gameId]: data }))
+    }
+
+    setSavingGameId(null)
+  }
+
+  // Confidence points only apply once a winner is already picked for that
+  // game — same "pick first, then refine" flow as D/N. Uniqueness across
+  // the week's 9 values is enforced server-side (trg_unique_confidence_points,
+  // confirmed already in place), but the UI disables already-used values
+  // proactively rather than waiting for that rejection.
+  const handleConfidenceChange = async (gameId: string, value: string) => {
+    if (!userId) return
+    const currentPick = picks[gameId]
+    if (!currentPick?.picked_team) return
+
+    setSavingGameId(gameId)
+    setError('')
+
+    const parsed = value === '' ? null : Number(value)
+
+    const { data, error } = await supabase
+      .from('picks')
+      .update({ confidence_points: parsed })
+      .eq('user_id', userId)
+      .eq('game_id', gameId)
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
       .single()
 
     if (error) {
@@ -292,10 +327,6 @@ export default function PicksPage() {
     setSavingTiebreaker(false)
   }
 
-  // Fires on blur of either score input. Only saves once BOTH fields hold a
-  // valid number — a lone away-score with an empty home-score isn't a
-  // complete prediction, and saving it partially would make the summary
-  // card's "✅ entered" check meaningless.
   const handleGotwPredictionBlur = async () => {
     if (!userId || !weekId) return
 
@@ -303,7 +334,7 @@ export default function PicksPage() {
     const homeTrimmed = gotwHomeInput.trim()
 
     if (awayTrimmed === '' || homeTrimmed === '') {
-      return // wait until both are filled in
+      return
     }
 
     const awayParsed = Number(awayTrimmed)
@@ -320,7 +351,7 @@ export default function PicksPage() {
     }
 
     if (awayParsed === gotwAwayPrediction && homeParsed === gotwHomePrediction) {
-      return // unchanged, nothing to save
+      return
     }
 
     setSavingGotw(true)
@@ -377,6 +408,8 @@ export default function PicksPage() {
   }
 
   const now = Date.now()
+  const isConferenceTitle = weekType === 'conference_title'
+
   const dnGameId = Object.keys(picks).find((gid) => picks[gid]?.is_double_or_nothing)
   const dnTeam = dnGameId ? picks[dnGameId]?.picked_team : null
 
@@ -393,6 +426,23 @@ export default function PicksPage() {
   const allPicked = pickedCount === pickableGames.length
   const missingGames = pickableGames.filter((g) => !picks[g.id]?.picked_team)
 
+  // Conference Title Week completeness: all 9 confidence values 1–9 must be
+  // assigned exactly once. The uniqueness half is already guaranteed by the
+  // server trigger; this just checks nothing's been left blank.
+  const assignedConfidenceValues = new Set(
+    pickableGames
+      .map((g) => picks[g.id]?.confidence_points)
+      .filter((v): v is number => v != null)
+  )
+  const missingConfidenceValues = CONFIDENCE_VALUES.filter(
+    (v) => !assignedConfidenceValues.has(v)
+  ).sort((a, b) => a - b)
+  const allConfidenceAssigned = missingConfidenceValues.length === 0
+
+  const summaryComplete = isConferenceTitle
+    ? allPicked && allConfidenceAssigned && Boolean(tiebreakerTeam)
+    : allPicked && Boolean(dnTeam) && Boolean(tiebreakerTeam)
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
       <div>
@@ -402,17 +452,17 @@ export default function PicksPage() {
         <h1 className="mt-1 text-2xl font-semibold">{seasonName}</h1>
         <p className="text-muted-foreground">
           {weekName}
-          {weekType === 'conference_title' && ' — Conference Title Week'}
+          {isConferenceTitle && ' — Conference Title Week'}
         </p>
       </div>
 
-      <Card className={allPicked && dnTeam && tiebreakerTeam ? 'border-primary/40' : undefined}>
+      <Card className={summaryComplete ? 'border-primary/40' : undefined}>
         <CardHeader>
           <CardTitle className="text-base font-medium">Picks Summary</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-1 text-sm">
           <p>
-            {allPicked ? '✅' : '⚠️'} Games picked: {pickedCount} of {pickableGames.length}
+            {allPicked ? '✅' : '⚠️'} Winners picked: {pickedCount} of {pickableGames.length}
             {!allPicked && missingGames.length > 0 && (
               <span className="text-muted-foreground">
                 {' '}
@@ -420,15 +470,31 @@ export default function PicksPage() {
               </span>
             )}
           </p>
-          <p>
-            {dnTeam ? '✅' : '⚠️'} Double or Nothing:{' '}
-            <span className="font-medium">{dnTeam ?? 'not selected'}</span>
-          </p>
+
+          {isConferenceTitle ? (
+            <p>
+              {allConfidenceAssigned ? '✅' : '⚠️'} Confidence points assigned:{' '}
+              {assignedConfidenceValues.size} of 9
+              {!allConfidenceAssigned && (
+                <span className="text-muted-foreground">
+                  {' '}
+                  — missing: {missingConfidenceValues.join(', ')}
+                </span>
+              )}
+            </p>
+          ) : (
+            <p>
+              {dnTeam ? '✅' : '⚠️'} Double or Nothing:{' '}
+              <span className="font-medium">{dnTeam ?? 'not selected'}</span>
+            </p>
+          )}
+
           <p>
             {tiebreakerTeam ? '✅' : '⚠️'} Tiebreaker / Highest Scoring Team:{' '}
             <span className="font-medium">{tiebreakerTeam ?? 'not selected'}</span>
           </p>
-          {gameOfWeek && (
+
+          {!isConferenceTitle && gameOfWeek && (
             <p>
               {gotwComplete ? '✅' : '⚠️'} Game of the Week prediction:{' '}
               <span className="font-medium">
@@ -452,6 +518,13 @@ export default function PicksPage() {
           const saving = savingGameId === game.id
           const usedWeek = pick?.picked_team ? dnHistory[pick.picked_team] : undefined
           const alreadyUsedElsewhere = Boolean(usedWeek) && !pick?.is_double_or_nothing
+
+          const usedConfidenceByOtherGames = new Set(
+            games
+              .filter((g) => g.id !== game.id)
+              .map((g) => picks[g.id]?.confidence_points)
+              .filter((v): v is number => v != null)
+          )
 
           return (
             <Card key={game.id}>
@@ -491,6 +564,11 @@ export default function PicksPage() {
                         D/N
                       </Badge>
                     )}
+                    {isConferenceTitle && pick?.confidence_points != null && (
+                      <Badge variant="secondary" className="ml-2">
+                        Confidence: {pick.confidence_points}
+                      </Badge>
+                    )}
                   </p>
                 ) : (
                   <>
@@ -515,7 +593,33 @@ export default function PicksPage() {
                       })}
                     </div>
 
-                    {pick?.picked_team && (
+                    {pick?.picked_team && isConferenceTitle && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-muted-foreground">
+                          Confidence points:
+                        </label>
+                        <select
+                          value={pick.confidence_points ?? ''}
+                          disabled={saving}
+                          onChange={(e) => handleConfidenceChange(game.id, e.target.value)}
+                          className="w-20 rounded-md border border-border bg-background px-2 py-1 text-sm disabled:opacity-50"
+                        >
+                          <option value="">—</option>
+                          {CONFIDENCE_VALUES.map((n) => (
+                            <option
+                              key={n}
+                              value={n}
+                              disabled={usedConfidenceByOtherGames.has(n)}
+                            >
+                              {n}
+                              {usedConfidenceByOtherGames.has(n) ? ' (used)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {pick?.picked_team && !isConferenceTitle && (
                       alreadyUsedElsewhere ? (
                         <p className="text-sm text-muted-foreground">
                           Double or Nothing unavailable — {pick.picked_team} was already used in{' '}
@@ -535,7 +639,7 @@ export default function PicksPage() {
                       )
                     )}
 
-                    {game.game_of_week && (
+                    {!isConferenceTitle && game.game_of_week && (
                       <div className="mt-1 flex flex-col gap-1">
                         <label className="text-sm text-muted-foreground">
                           Predict the final score:

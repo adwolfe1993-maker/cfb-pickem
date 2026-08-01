@@ -14,10 +14,7 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
-      onClick={handleLogout}
-      style={{ padding: '8px 16px', fontSize: 14, cursor: 'pointer' }}
-    >
+    <button onClick={handleLogout} className="text-sm font-medium hover:text-accent">
       Log out
     </button>
   )

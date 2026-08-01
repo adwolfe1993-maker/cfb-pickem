@@ -267,11 +267,6 @@ export default function PicksPage() {
     setSavingGameId(null)
   }
 
-  // Confidence points only apply once a winner is already picked for that
-  // game — same "pick first, then refine" flow as D/N. Uniqueness across
-  // the week's 9 values is enforced server-side (trg_unique_confidence_points,
-  // confirmed already in place), but the UI disables already-used values
-  // proactively rather than waiting for that rejection.
   const handleConfidenceChange = async (gameId: string, value: string) => {
     if (!userId) return
     const currentPick = picks[gameId]
@@ -426,9 +421,6 @@ export default function PicksPage() {
   const allPicked = pickedCount === pickableGames.length
   const missingGames = pickableGames.filter((g) => !picks[g.id]?.picked_team)
 
-  // Conference Title Week completeness: all 9 confidence values 1–9 must be
-  // assigned exactly once. The uniqueness half is already guaranteed by the
-  // server trigger; this just checks nothing's been left blank.
   const assignedConfidenceValues = new Set(
     pickableGames
       .map((g) => picks[g.id]?.confidence_points)
@@ -441,7 +433,10 @@ export default function PicksPage() {
 
   const summaryComplete = isConferenceTitle
     ? allPicked && allConfidenceAssigned && Boolean(tiebreakerTeam)
-    : allPicked && Boolean(dnTeam) && Boolean(tiebreakerTeam)
+    : allPicked &&
+      Boolean(dnTeam) &&
+      Boolean(tiebreakerTeam) &&
+      (!gameOfWeek || gotwComplete)
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
@@ -506,6 +501,13 @@ export default function PicksPage() {
           )}
         </CardContent>
       </Card>
+
+      <Link
+        href="/picks/status"
+        className="text-sm font-medium text-primary underline underline-offset-4"
+      >
+        See who else has picked →
+      </Link>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

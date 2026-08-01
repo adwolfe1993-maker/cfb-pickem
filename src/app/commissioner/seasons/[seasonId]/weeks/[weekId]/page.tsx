@@ -57,6 +57,7 @@ export default function WeekDetailPage({
   const [fetchingGames, setFetchingGames] = useState(false)
   const [saving, setSaving] = useState(false)
   const [activating, setActivating] = useState(false)
+  const [completing, setCompleting] = useState(false)
   const [error, setError] = useState('')
   const [resultInputs, setResultInputs] = useState<Record<string, ResultInput>>({})
   const [resultErrors, setResultErrors] = useState<Record<string, string>>({})
@@ -193,6 +194,18 @@ export default function WeekDetailPage({
     setActivating(false)
   }
 
+  const handleCompleteWeek = async () => {
+    setCompleting(true)
+    setError('')
+
+    const { error } = await supabase.from('weeks').update({ status: 'complete' }).eq('id', weekId)
+
+    if (error) setError(error.message)
+    else loadData()
+
+    setCompleting(false)
+  }
+
   const handleSaveResult = async (game: SavedGame) => {
     const input = resultInputs[game.id] ?? { away: '', home: '' }
     const awayTrimmed = input.away.trim()
@@ -279,6 +292,13 @@ export default function WeekDetailPage({
     )
   }
 
+  // A week can only be marked complete once every game in it has an actual
+  // result — final or canceled. An empty slate isn't "complete" either;
+  // that's just an unpublished week, not a finished one.
+  const allGamesResolved =
+    savedGames.length > 0 &&
+    savedGames.every((g) => g.status === 'final' || g.status === 'canceled')
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 py-12">
       <div>
@@ -290,7 +310,15 @@ export default function WeekDetailPage({
         </Link>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{week?.name}</h1>
-          <Badge variant={week?.status === 'active' ? 'default' : 'outline'}>
+          <Badge
+            variant={
+              week?.status === 'active'
+                ? 'default'
+                : week?.status === 'complete'
+                  ? 'secondary'
+                  : 'outline'
+            }
+          >
             {week?.status}
           </Badge>
         </div>
@@ -299,8 +327,15 @@ export default function WeekDetailPage({
       <Card>
         <CardContent className="flex items-center justify-between gap-4 py-4">
           <div className="text-sm text-muted-foreground">
-            {week?.status === 'active' ? (
-              <span>This week is live — participants can see and submit picks now.</span>
+            {week?.status === 'complete' ? (
+              <span>
+                This week is complete — its results now count toward season standings.
+              </span>
+            ) : week?.status === 'active' ? (
+              <span>
+                This week is live — participants can see and submit picks now.
+                {!allGamesResolved && ' Enter results for every game to mark it complete.'}
+              </span>
             ) : (
               <span>
                 This week is still <strong>{week?.status}</strong> — participants can&apos;t see
@@ -309,11 +344,29 @@ export default function WeekDetailPage({
               </span>
             )}
           </div>
-          {week?.status !== 'active' && (
-            <Button onClick={handleActivateWeek} disabled={activating || savedGames.length === 0}>
-              {activating ? 'Activating...' : 'Activate Week'}
-            </Button>
-          )}
+          <div className="flex shrink-0 gap-2">
+            {week?.status === 'upcoming' && (
+              <Button
+                onClick={handleActivateWeek}
+                disabled={activating || savedGames.length === 0}
+              >
+                {activating ? 'Activating...' : 'Activate Week'}
+              </Button>
+            )}
+            {week?.status === 'active' && (
+              <Button
+                onClick={handleCompleteWeek}
+                disabled={completing || !allGamesResolved}
+                title={
+                  !allGamesResolved
+                    ? 'Every game needs a final result or must be marked canceled first'
+                    : undefined
+                }
+              >
+                {completing ? 'Completing...' : 'Mark Week Complete'}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

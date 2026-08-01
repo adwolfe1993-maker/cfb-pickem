@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 
-export default async function PicksIndexRedirect() {
+export default async function PicksGridIndexRedirect() {
   const supabase = await createClient()
 
   const {
@@ -34,11 +34,9 @@ export default async function PicksIndexRedirect() {
   const activeWeek = activeWeeks?.[0]
 
   if (activeWeek) {
-    redirect(`/picks/${activeWeek.id}`)
+    redirect(`/picks/${activeWeek.id}/grid`)
   }
 
-  // No active week — fall back to the most recent by week_number rather
-  // than dead-ending, so this link still goes somewhere useful.
   const { data: latestWeeks } = await supabase
     .from('weeks')
     .select('id')
@@ -49,7 +47,7 @@ export default async function PicksIndexRedirect() {
   const latestWeek = latestWeeks?.[0]
 
   if (latestWeek) {
-    redirect(`/picks/${latestWeek.id}`)
+    redirect(`/picks/${latestWeek.id}/grid`)
   }
 
   redirect('/')

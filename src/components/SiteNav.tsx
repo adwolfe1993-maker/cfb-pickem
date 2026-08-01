@@ -39,6 +39,9 @@ export default async function SiteNav() {
         <Link href="/picks/status" className="hover:text-accent">
           Who&apos;s Picked
         </Link>
+        <Link href="/picks/grid" className="hover:text-accent">
+          Pick Grid
+        </Link>
         {profile?.role === 'commissioner' && (
           <Link href="/commissioner/seasons" className="hover:text-accent">
             Manage Seasons

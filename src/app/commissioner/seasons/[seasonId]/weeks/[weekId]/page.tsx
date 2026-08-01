@@ -148,6 +148,10 @@ export default function WeekDetailPage({
     setSaving(true)
     setError('')
 
+    // cfbd_year / cfbd_week persist what year+week these games were actually
+    // fetched from — needed so the score-polling job can re-query CFBD's
+    // batched weekly endpoint later without guessing or falling back to an
+    // expensive per-game lookup.
     const gamesToInsert = cfbdGames
       .filter((g) => selectedIds.has(g.id))
       .map((g) => ({
@@ -160,6 +164,8 @@ export default function WeekDetailPage({
         game_type: 'standard' as const,
         status: 'scheduled' as const,
         api_game_id: String(g.id),
+        cfbd_year: Number(year),
+        cfbd_week: Number(cfbdWeek),
       }))
 
     const { error } = await supabase.from('games').insert(gamesToInsert)
@@ -292,9 +298,6 @@ export default function WeekDetailPage({
     )
   }
 
-  // A week can only be marked complete once every game in it has an actual
-  // result — final or canceled. An empty slate isn't "complete" either;
-  // that's just an unpublished week, not a finished one.
   const allGamesResolved =
     savedGames.length > 0 &&
     savedGames.every((g) => g.status === 'final' || g.status === 'canceled')

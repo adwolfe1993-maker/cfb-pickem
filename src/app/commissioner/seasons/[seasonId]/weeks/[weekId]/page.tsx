@@ -31,7 +31,13 @@ type SavedGame = {
   home_team: string
   kickoff_time: string
   game_of_week: boolean
+  status: string
+  away_score: number | null
+  home_score: number | null
+  winner: string | null
 }
+
+type ResultInput = { away: string; home: string }
 
 export default function WeekDetailPage({
   params,
@@ -52,6 +58,9 @@ export default function WeekDetailPage({
   const [saving, setSaving] = useState(false)
   const [activating, setActivating] = useState(false)
   const [error, setError] = useState('')
+  const [resultInputs, setResultInputs] = useState<Record<string, ResultInput>>({})
+  const [resultErrors, setResultErrors] = useState<Record<string, string>>({})
+  const [savingResultId, setSavingResultId] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -61,7 +70,9 @@ export default function WeekDetailPage({
       supabase.from('seasons').select('status').eq('id', seasonId).single(),
       supabase
         .from('games')
-        .select('id, api_game_id, away_team, home_team, kickoff_time, game_of_week')
+        .select(
+          'id, api_game_id, away_team, home_team, kickoff_time, game_of_week, status, away_score, home_score, winner'
+        )
         .eq('week_id', weekId)
         .order('kickoff_time', { ascending: true }),
     ])
@@ -72,8 +83,24 @@ export default function WeekDetailPage({
     if (seasonRes.error) setError(seasonRes.error.message)
     else setSeasonStatus(seasonRes.data?.status ?? null)
 
-    if (gamesRes.error) setError(gamesRes.error.message)
-    else setSavedGames(gamesRes.data ?? [])
+    if (gamesRes.error) {
+      setError(gamesRes.error.message)
+    } else {
+      const games = gamesRes.data ?? []
+      setSavedGames(games)
+      setResultInputs((prev) => {
+        const next = { ...prev }
+        for (const g of games) {
+          if (!next[g.id]) {
+            next[g.id] = {
+              away: g.away_score != null ? String(g.away_score) : '',
+              home: g.home_score != null ? String(g.home_score) : '',
+            }
+          }
+        }
+        return next
+      })
+    }
 
     setLoading(false)
   }
@@ -92,7 +119,6 @@ export default function WeekDetailPage({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to fetch games')
 
-      // Exclude FCS-vs-FCS matchups and games against FCS schools, per charter §4.1
       const fbsGames = (data as CfbdGame[]).filter(
         (g) => g.homeClassification === 'fbs' && g.awayClassification === 'fbs'
       )
@@ -149,13 +175,6 @@ export default function WeekDetailPage({
     setSaving(false)
   }
 
-  // Activating a week also activates its season, if not already — a week
-  // can't meaningfully be "on" while its season is still in `upcoming`.
-  // What this deliberately does NOT handle yet: what happens to a
-  // previously-active week when a new one is activated (e.g. should it
-  // auto-complete?). With only one week to test against right now, that
-  // behavior is better decided once there's a real second week to verify
-  // it against, rather than guessed at here.
   const handleActivateWeek = async () => {
     setActivating(true)
     setError('')
@@ -172,6 +191,83 @@ export default function WeekDetailPage({
     else loadData()
 
     setActivating(false)
+  }
+
+  const handleSaveResult = async (game: SavedGame) => {
+    const input = resultInputs[game.id] ?? { away: '', home: '' }
+    const awayTrimmed = input.away.trim()
+    const homeTrimmed = input.home.trim()
+
+    setResultErrors((prev) => ({ ...prev, [game.id]: '' }))
+
+    if (awayTrimmed === '' || homeTrimmed === '') {
+      setResultErrors((prev) => ({ ...prev, [game.id]: 'Enter both scores' }))
+      return
+    }
+
+    const awayScore = Number(awayTrimmed)
+    const homeScore = Number(homeTrimmed)
+
+    if (
+      !Number.isInteger(awayScore) ||
+      !Number.isInteger(homeScore) ||
+      awayScore < 0 ||
+      homeScore < 0
+    ) {
+      setResultErrors((prev) => ({
+        ...prev,
+        [game.id]: 'Scores must be whole numbers, 0 or higher',
+      }))
+      return
+    }
+
+    if (awayScore === homeScore) {
+      setResultErrors((prev) => ({
+        ...prev,
+        [game.id]: 'Scores cannot be tied — college football games always have a winner',
+      }))
+      return
+    }
+
+    setSavingResultId(game.id)
+
+    const winner = awayScore > homeScore ? game.away_team : game.home_team
+
+    const { error } = await supabase
+      .from('games')
+      .update({
+        away_score: awayScore,
+        home_score: homeScore,
+        winner,
+        status: 'final',
+      })
+      .eq('id', game.id)
+
+    if (error) {
+      setResultErrors((prev) => ({ ...prev, [game.id]: error.message }))
+    } else {
+      loadData()
+    }
+
+    setSavingResultId(null)
+  }
+
+  const handleMarkCanceled = async (game: SavedGame) => {
+    setSavingResultId(game.id)
+    setResultErrors((prev) => ({ ...prev, [game.id]: '' }))
+
+    const { error } = await supabase
+      .from('games')
+      .update({ status: 'canceled', away_score: null, home_score: null, winner: null })
+      .eq('id', game.id)
+
+    if (error) {
+      setResultErrors((prev) => ({ ...prev, [game.id]: error.message }))
+    } else {
+      loadData()
+    }
+
+    setSavingResultId(null)
   }
 
   if (loading) {
@@ -200,7 +296,6 @@ export default function WeekDetailPage({
         </div>
       </div>
 
-      {/* Activate control */}
       <Card>
         <CardContent className="flex items-center justify-between gap-4 py-4">
           <div className="text-sm text-muted-foreground">
@@ -222,32 +317,110 @@ export default function WeekDetailPage({
         </CardContent>
       </Card>
 
-      {/* Saved slate */}
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Current Slate ({savedGames.length} games)</h2>
         {savedGames.length === 0 ? (
           <p className="text-sm text-muted-foreground">No games added yet.</p>
         ) : (
-          savedGames.map((g) => (
-            <div
-              key={g.id}
-              className="flex items-center justify-between rounded-lg border border-border p-4"
-            >
-              <div>
-                <p className="font-medium">
-                  {g.away_team} @ {g.home_team}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(g.kickoff_time).toLocaleString()}
-                </p>
+          savedGames.map((g) => {
+            const input = resultInputs[g.id] ?? { away: '', home: '' }
+            const isSaving = savingResultId === g.id
+            const resultError = resultErrors[g.id]
+
+            return (
+              <div key={g.id} className="flex flex-col gap-2 rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">
+                      {g.away_team} @ {g.home_team}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(g.kickoff_time).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {g.game_of_week && <Badge>Game of the Week</Badge>}
+                    <Badge
+                      variant={
+                        g.status === 'final'
+                          ? 'secondary'
+                          : g.status === 'canceled'
+                            ? 'destructive'
+                            : 'outline'
+                      }
+                    >
+                      {g.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                {g.status === 'canceled' ? (
+                  <p className="text-sm text-muted-foreground">
+                    Canceled — excluded from scoring entirely.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor={`away-${g.id}`} className="text-xs">
+                        {g.away_team}
+                      </Label>
+                      <Input
+                        id={`away-${g.id}`}
+                        className="w-20"
+                        inputMode="numeric"
+                        value={input.away}
+                        onChange={(e) =>
+                          setResultInputs((prev) => ({
+                            ...prev,
+                            [g.id]: { ...input, away: e.target.value },
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor={`home-${g.id}`} className="text-xs">
+                        {g.home_team}
+                      </Label>
+                      <Input
+                        id={`home-${g.id}`}
+                        className="w-20"
+                        inputMode="numeric"
+                        value={input.home}
+                        onChange={(e) =>
+                          setResultInputs((prev) => ({
+                            ...prev,
+                            [g.id]: { ...input, home: e.target.value },
+                          }))
+                        }
+                      />
+                    </div>
+                    <Button size="sm" disabled={isSaving} onClick={() => handleSaveResult(g)}>
+                      {isSaving ? 'Saving...' : g.status === 'final' ? 'Update Result' : 'Mark Final'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() => handleMarkCanceled(g)}
+                    >
+                      Mark Canceled
+                    </Button>
+                    {g.status === 'final' && g.winner && (
+                      <span className="text-sm text-muted-foreground">
+                        Final: {g.away_team} {g.away_score} – {g.home_team} {g.home_score} (
+                        {g.winner} wins)
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {resultError && <p className="text-sm text-destructive">{resultError}</p>}
               </div>
-              {g.game_of_week && <Badge>Game of the Week</Badge>}
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
-      {/* Fetch games from CFBD */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Add Games from CFBD</CardTitle>

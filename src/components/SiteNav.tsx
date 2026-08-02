@@ -42,6 +42,9 @@ export default async function SiteNav() {
         <Link href="/picks/grid" className="hover:text-accent">
           Pick Grid
         </Link>
+        <Link href="/dn-history" className="hover:text-accent">
+          D/N History
+        </Link>
         <Link href="/standings" className="hover:text-accent">
           Standings
         </Link>

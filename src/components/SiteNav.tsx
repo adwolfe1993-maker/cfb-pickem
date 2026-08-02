@@ -48,6 +48,9 @@ export default async function SiteNav() {
         <Link href="/win-the-week" className="hover:text-accent">
           Win the Week
         </Link>
+        <Link href="/similarities" className="hover:text-accent">
+          Similarities
+        </Link>
         <Link href="/standings" className="hover:text-accent">
           Standings
         </Link>

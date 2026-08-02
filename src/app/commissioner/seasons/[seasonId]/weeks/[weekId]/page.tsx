@@ -48,6 +48,11 @@ type SlateCandidate = {
   awayTeam: string
   homeTeam: string
   startDate: string
+  // MLB-only: the local "officialDate" the game is scheduled under, distinct
+  // from startDate/kickoff (UTC) — needed so the poller can re-query MLB's
+  // schedule endpoint by the correct date without misgrouping late games
+  // that cross a UTC day boundary.
+  officialDate?: string
 }
 
 export default function WeekDetailPage({
@@ -167,6 +172,7 @@ export default function WeekDetailPage({
             awayTeam: g.teams.away.team.name,
             homeTeam: g.teams.home.team.name,
             startDate: g.gameDate,
+            officialDate: g.officialDate,
           }))
         )
       }
@@ -215,6 +221,7 @@ export default function WeekDetailPage({
       api_game_id: String(g.id),
       cfbd_year: dataSource === 'cfbd' ? Number(year) : null,
       cfbd_week: dataSource === 'cfbd' ? Number(cfbdWeek) : null,
+      mlb_date: dataSource === 'mlb' ? (g.officialDate ?? null) : null,
     }))
 
     const { error } = await supabase.from('games').insert(gamesToInsert)

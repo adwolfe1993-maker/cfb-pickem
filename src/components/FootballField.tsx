@@ -47,11 +47,11 @@ export default function FootballField() {
               style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
             >
               <div className="h-full w-[3px] bg-white/60" />
-              <span className="absolute top-6 select-none text-3xl font-bold text-white/50 sm:top-12 sm:text-5xl">
+              <span className="absolute top-6 hidden select-none text-3xl font-bold text-white/50 sm:top-12 sm:block sm:text-5xl">
                 {label}
               </span>
               <span
-                className="absolute bottom-6 select-none text-3xl font-bold text-white/50 sm:bottom-12 sm:text-5xl"
+                className="absolute bottom-6 hidden select-none text-3xl font-bold text-white/50 sm:bottom-12 sm:block sm:text-5xl"
                 style={{ transform: 'rotate(180deg)' }}
               >
                 {label}
@@ -66,7 +66,7 @@ export default function FootballField() {
           const leftPercent = ((i + 1) / 20) * 100
           if ((i + 1) % 2 === 0) return null // skip where a full yard line already exists
           return (
-            <div key={`hash-${i}`} style={{ position: 'absolute', left: `${leftPercent}%` }}>
+            <div key={`hash-${i}`} className="hidden sm:block" style={{ position: 'absolute', left: `${leftPercent}%` }}>
               <div
                 className="absolute h-8 w-[3px] -translate-y-1/2 bg-white/70 sm:h-12"
                 style={{ top: '30%' }}

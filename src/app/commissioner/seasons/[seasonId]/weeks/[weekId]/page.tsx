@@ -195,7 +195,24 @@ export default function WeekDetailPage({
 
     if (seasonUpdate.error) setError(seasonUpdate.error.message)
     else if (weekUpdate.error) setError(weekUpdate.error.message)
-    else loadData()
+    else {
+      loadData()
+      // Notification failure deliberately doesn't block week activation —
+      // the week going live is the state change that actually matters.
+      supabase.functions
+        .invoke('send-notification', {
+          body: {
+            title: 'Picks are open!',
+            body: `${week?.name ?? 'This week'}'s slate is live — get your picks in.`,
+          },
+        })
+        .then(({ error: fnError }) => {
+          if (fnError) console.error('Notification send failed:', fnError)
+        })
+        .catch((err) => {
+          console.error('Notification send failed:', err)
+        })
+    }
 
     setActivating(false)
   }

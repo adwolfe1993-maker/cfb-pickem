@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import FootballField from '@/components/FootballField'
+import EnableNotifications from '@/components/EnableNotifications'
 import {
   Card,
   CardContent,
@@ -33,16 +34,21 @@ export default async function HomePage() {
         <CardHeader>
           <CardTitle className="text-2xl">The Buck Stops Here</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-1 text-sm">
-          <p>
-            Logged in as <span className="font-medium">{user.email}</span>
-          </p>
-          <p>
-            Display name <span className="font-medium">{profile?.display_name ?? '—'}</span>
-          </p>
-          <p>
-            Role <span className="font-medium">{profile?.role ?? '—'}</span>
-          </p>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <div className="flex flex-col gap-1">
+            <p>
+              Logged in as <span className="font-medium">{user.email}</span>
+            </p>
+            <p>
+              Display name <span className="font-medium">{profile?.display_name ?? '—'}</span>
+            </p>
+            <p>
+              Role <span className="font-medium">{profile?.role ?? '—'}</span>
+            </p>
+          </div>
+          <div className="border-t border-border pt-3">
+            <EnableNotifications />
+          </div>
         </CardContent>
       </Card>
     </div>

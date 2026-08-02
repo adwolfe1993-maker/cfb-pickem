@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import SiteNav from "@/components/SiteNav";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "The Buck Stops Here",
-  description: "CFB Pick'Em League",
+  description: "No excuses. Just picks.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon-32.png",
+    apple: "/icons/icon-192.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6B1F2A",
 };
 
 export default function RootLayout({
@@ -39,6 +49,7 @@ export default function RootLayout({
         >
           <SiteNav />
           {children}
+          <ServiceWorkerRegistration />
         </ThemeProvider>
       </body>
     </html>

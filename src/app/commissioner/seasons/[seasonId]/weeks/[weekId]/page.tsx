@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import type { CfbdGame } from '@/lib/cfbd'
+import type { MlbGame } from '@/lib/mlb'
 
 type Week = {
   id: string
@@ -39,6 +40,16 @@ type SavedGame = {
 
 type ResultInput = { away: string; home: string }
 
+// Normalized shape both CFBD and MLB candidate games get mapped into, so the
+// selection UI and toggleGame/gameOfWeek logic don't need to know or care
+// which provider a game came from.
+type SlateCandidate = {
+  id: number
+  awayTeam: string
+  homeTeam: string
+  startDate: string
+}
+
 export default function WeekDetailPage({
   params,
 }: {
@@ -48,11 +59,13 @@ export default function WeekDetailPage({
   const [week, setWeek] = useState<Week | null>(null)
   const [seasonStatus, setSeasonStatus] = useState<string | null>(null)
   const [savedGames, setSavedGames] = useState<SavedGame[]>([])
-  const [cfbdGames, setCfbdGames] = useState<CfbdGame[]>([])
+  const [dataSource, setDataSource] = useState<'cfbd' | 'mlb'>('cfbd')
+  const [candidates, setCandidates] = useState<SlateCandidate[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [gameOfWeekId, setGameOfWeekId] = useState<number | null>(null)
   const [year, setYear] = useState('2025')
   const [cfbdWeek, setCfbdWeek] = useState('1')
+  const [mlbDate, setMlbDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [fetchingGames, setFetchingGames] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -110,20 +123,53 @@ export default function WeekDetailPage({
     loadData()
   }, [weekId])
 
+  const handleSourceChange = (source: 'cfbd' | 'mlb') => {
+    setDataSource(source)
+    setCandidates([])
+    setSelectedIds(new Set())
+    setGameOfWeekId(null)
+    setError('')
+  }
+
   const handleFetchGames = async () => {
     setFetchingGames(true)
     setError('')
-    setCfbdGames([])
+    setCandidates([])
+    setSelectedIds(new Set())
+    setGameOfWeekId(null)
 
     try {
-      const res = await fetch(`/api/cfbd/games?year=${year}&week=${cfbdWeek}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to fetch games')
+      if (dataSource === 'cfbd') {
+        const res = await fetch(`/api/cfbd/games?year=${year}&week=${cfbdWeek}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Failed to fetch games')
 
-      const fbsGames = (data as CfbdGame[]).filter(
-        (g) => g.homeClassification === 'fbs' && g.awayClassification === 'fbs'
-      )
-      setCfbdGames(fbsGames)
+        const fbsGames = (data as CfbdGame[]).filter(
+          (g) => g.homeClassification === 'fbs' && g.awayClassification === 'fbs'
+        )
+        setCandidates(
+          fbsGames.map((g) => ({
+            id: g.id,
+            awayTeam: g.awayTeam,
+            homeTeam: g.homeTeam,
+            startDate: g.startDate,
+          }))
+        )
+      } else {
+        if (!mlbDate) throw new Error('Pick a date first')
+        const res = await fetch(`/api/mlb/games?date=${mlbDate}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Failed to fetch games')
+
+        setCandidates(
+          (data as MlbGame[]).map((g) => ({
+            id: g.gamePk,
+            awayTeam: g.teams.away.team.name,
+            homeTeam: g.teams.home.team.name,
+            startDate: g.gameDate,
+          }))
+        )
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch games')
     } finally {
@@ -148,32 +194,35 @@ export default function WeekDetailPage({
     setSaving(true)
     setError('')
 
+    const selected = candidates.filter((g) => selectedIds.has(g.id))
+
     // cfbd_year / cfbd_week persist what year+week these games were actually
-    // fetched from — needed so the score-polling job can re-query CFBD's
-    // batched weekly endpoint later without guessing or falling back to an
-    // expensive per-game lookup.
-    const gamesToInsert = cfbdGames
-      .filter((g) => selectedIds.has(g.id))
-      .map((g) => ({
-        week_id: weekId,
-        away_team: g.awayTeam,
-        home_team: g.homeTeam,
-        kickoff_time: g.startDate,
-        tv_network: null,
-        game_of_week: g.id === gameOfWeekId,
-        game_type: 'standard' as const,
-        status: 'scheduled' as const,
-        api_game_id: String(g.id),
-        cfbd_year: Number(year),
-        cfbd_week: Number(cfbdWeek),
-      }))
+    // fetched from — needed so a future CFBD polling job can re-query CFBD's
+    // batched weekly endpoint without guessing or falling back to an
+    // expensive per-game lookup. Nulled out for MLB rows, which don't have
+    // a CFBD-shaped identity — a poller can derive the query date straight
+    // from kickoff_time instead.
+    const gamesToInsert = selected.map((g) => ({
+      week_id: weekId,
+      away_team: g.awayTeam,
+      home_team: g.homeTeam,
+      kickoff_time: g.startDate,
+      tv_network: null,
+      game_of_week: g.id === gameOfWeekId,
+      game_type: 'standard' as const,
+      status: 'scheduled' as const,
+      provider: dataSource,
+      api_game_id: String(g.id),
+      cfbd_year: dataSource === 'cfbd' ? Number(year) : null,
+      cfbd_week: dataSource === 'cfbd' ? Number(cfbdWeek) : null,
+    }))
 
     const { error } = await supabase.from('games').insert(gamesToInsert)
 
     if (error) {
       setError(error.message)
     } else {
-      setCfbdGames([])
+      setCandidates([])
       setSelectedIds(new Set())
       setGameOfWeekId(null)
       loadData()
@@ -496,40 +545,76 @@ export default function WeekDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Add Games from CFBD</CardTitle>
+          <CardTitle className="text-lg">
+            Add Games from {dataSource === 'cfbd' ? 'CFBD' : 'MLB Stats API'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={dataSource === 'cfbd' ? 'default' : 'outline'}
+              onClick={() => handleSourceChange('cfbd')}
+            >
+              CFBD (CFB)
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={dataSource === 'mlb' ? 'default' : 'outline'}
+              onClick={() => handleSourceChange('mlb')}
+            >
+              MLB Stats API (Beta)
+            </Button>
+          </div>
+
           <div className="flex items-end gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="year">Year</Label>
-              <Input
-                id="year"
-                className="w-24"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="cfbd-week">CFBD Week #</Label>
-              <Input
-                id="cfbd-week"
-                className="w-24"
-                value={cfbdWeek}
-                onChange={(e) => setCfbdWeek(e.target.value)}
-              />
-            </div>
+            {dataSource === 'cfbd' ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="year">Year</Label>
+                  <Input
+                    id="year"
+                    className="w-24"
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="cfbd-week">CFBD Week #</Label>
+                  <Input
+                    id="cfbd-week"
+                    className="w-24"
+                    value={cfbdWeek}
+                    onChange={(e) => setCfbdWeek(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mlb-date">Date</Label>
+                <Input
+                  id="mlb-date"
+                  type="date"
+                  className="w-40"
+                  value={mlbDate}
+                  onChange={(e) => setMlbDate(e.target.value)}
+                />
+              </div>
+            )}
             <Button onClick={handleFetchGames} disabled={fetchingGames}>
               {fetchingGames ? 'Fetching...' : 'Fetch Games'}
             </Button>
           </div>
 
-          {cfbdGames.length > 0 && (
+          {candidates.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted-foreground">
                 Check games to include. Click the star to mark Game of the Week.
               </p>
               <div className="flex max-h-96 flex-col gap-1 overflow-y-auto">
-                {cfbdGames.map((g) => (
+                {candidates.map((g) => (
                   <div
                     key={g.id}
                     className="flex items-center gap-3 rounded-lg border border-border p-3"

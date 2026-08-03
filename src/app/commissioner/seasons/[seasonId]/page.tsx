@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Card,
@@ -17,6 +18,7 @@ import {
 type Season = {
   id: string
   name: string
+  status: 'upcoming' | 'active' | 'complete'
 }
 
 type Week = {
@@ -37,13 +39,14 @@ export default function SeasonDetailPage({
   const [name, setName] = useState('')
   const [weekNumber, setWeekNumber] = useState('')
   const [loading, setLoading] = useState(true)
+  const [togglingStatus, setTogglingStatus] = useState(false)
   const [error, setError] = useState('')
 
   const supabase = createClient()
 
   const loadData = async () => {
     const [seasonRes, weeksRes] = await Promise.all([
-      supabase.from('seasons').select('id, name').eq('id', seasonId).single(),
+      supabase.from('seasons').select('id, name, status').eq('id', seasonId).single(),
       supabase
         .from('weeks')
         .select('id, name, week_number, status')
@@ -62,6 +65,7 @@ export default function SeasonDetailPage({
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seasonId])
 
   const handleCreateWeek = async (e: React.FormEvent) => {
@@ -84,6 +88,63 @@ export default function SeasonDetailPage({
     }
   }
 
+  const handleActivateSeason = async () => {
+    setTogglingStatus(true)
+    setError('')
+
+    const { error } = await supabase
+      .from('seasons')
+      .update({ status: 'active' })
+      .eq('id', seasonId)
+
+    // A duplicate-key error here (23505) means another season is already
+    // active — the DB-level constraint doing its job. Surface that plainly
+    // rather than the raw Postgres message.
+    if (error) {
+      setError(
+        error.code === '23505'
+          ? 'Another season is already active — deactivate it first.'
+          : error.message
+      )
+    } else {
+      loadData()
+    }
+
+    setTogglingStatus(false)
+  }
+
+  const handleDeactivateSeason = async () => {
+    setTogglingStatus(true)
+    setError('')
+
+    // Deactivating a season also deactivates any active week under it —
+    // a season that isn't active shouldn't have a "live" week inside it.
+    const { error: weeksError } = await supabase
+      .from('weeks')
+      .update({ status: 'upcoming' })
+      .eq('season_id', seasonId)
+      .eq('status', 'active')
+
+    if (weeksError) {
+      setError(weeksError.message)
+      setTogglingStatus(false)
+      return
+    }
+
+    const { error: seasonError } = await supabase
+      .from('seasons')
+      .update({ status: 'upcoming' })
+      .eq('id', seasonId)
+
+    if (seasonError) {
+      setError(seasonError.message)
+    } else {
+      loadData()
+    }
+
+    setTogglingStatus(false)
+  }
+
   if (loading) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4 py-12">
@@ -99,8 +160,40 @@ export default function SeasonDetailPage({
         <Link href="/commissioner/seasons" className="text-sm text-muted-foreground hover:underline">
           ← All Seasons
         </Link>
-        <h1 className="text-2xl font-semibold">{season?.name} Season</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">{season?.name} Season</h1>
+            <Badge
+              variant={
+                season?.status === 'active'
+                  ? 'default'
+                  : season?.status === 'complete'
+                    ? 'secondary'
+                    : 'outline'
+              }
+            >
+              {season?.status}
+            </Badge>
+          </div>
+          {season?.status === 'upcoming' && (
+            <Button size="sm" onClick={handleActivateSeason} disabled={togglingStatus}>
+              {togglingStatus ? 'Activating...' : 'Activate Season'}
+            </Button>
+          )}
+          {season?.status === 'active' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDeactivateSeason}
+              disabled={togglingStatus}
+            >
+              {togglingStatus ? 'Deactivating...' : 'Deactivate Season'}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Card>
         <CardHeader>
@@ -134,7 +227,6 @@ export default function SeasonDetailPage({
             </div>
             <Button type="submit">Create Week</Button>
           </form>
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
         </CardContent>
       </Card>
 

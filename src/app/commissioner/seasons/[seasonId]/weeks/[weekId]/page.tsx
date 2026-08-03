@@ -273,6 +273,21 @@ export default function WeekDetailPage({
     setActivating(false)
   }
 
+  const handleDeactivateWeek = async () => {
+    setActivating(true)
+    setError('')
+
+    const { error } = await supabase
+      .from('weeks')
+      .update({ status: 'upcoming' })
+      .eq('id', weekId)
+
+    if (error) setError(error.message)
+    else loadData()
+
+    setActivating(false)
+  }
+
   const handleCompleteWeek = async () => {
     setCompleting(true)
     setError('')
@@ -430,17 +445,26 @@ export default function WeekDetailPage({
               </Button>
             )}
             {week?.status === 'active' && (
-              <Button
-                onClick={handleCompleteWeek}
-                disabled={completing || !allGamesResolved}
-                title={
-                  !allGamesResolved
-                    ? 'Every game needs a final result or must be marked canceled first'
-                    : undefined
-                }
-              >
-                {completing ? 'Completing...' : 'Mark Week Complete'}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleDeactivateWeek}
+                  disabled={activating}
+                >
+                  {activating ? 'Deactivating...' : 'Deactivate Week'}
+                </Button>
+                <Button
+                  onClick={handleCompleteWeek}
+                  disabled={completing || !allGamesResolved}
+                  title={
+                    !allGamesResolved
+                      ? 'Every game needs a final result or must be marked canceled first'
+                      : undefined
+                  }
+                >
+                  {completing ? 'Completing...' : 'Mark Week Complete'}
+                </Button>
+              </>
             )}
           </div>
         </CardContent>

@@ -100,7 +100,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
               <p className="text-sm text-muted-foreground">
-                Check your email for a 6-digit code and enter it below.
+                Check your email for an 8-digit code and enter it below.
               </p>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="code">Code</Label>

@@ -37,7 +37,7 @@ export default function StatsHubPage() {
 
       <div className="flex flex-col gap-3">
         {STATS_PAGES.map((stat) => (
-          <Link key={stat.href} href={stat.href}>
+          <Link key={stat.href} href={stat.href} className="block w-full">
             <Card className="w-full transition-colors hover:bg-accent">
               <CardHeader>
                 <CardTitle className="text-base font-medium">{stat.title}</CardTitle>

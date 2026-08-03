@@ -35,14 +35,20 @@ export default function StatsHubPage() {
       <h1 className="text-2xl font-semibold">Stats</h1>
 
       {STATS_PAGES.map((stat) => (
-        <Link key={stat.href} href={stat.href} className="block w-full">
-          <Card className="w-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle className="text-base font-medium">{stat.title}</CardTitle>
-              <CardDescription>{stat.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
+        // Card is the actual flex child (a plain div) — the clickable
+        // Link lives inside it as an invisible full-cover overlay instead
+        // of wrapping it, so an <a> tag never has to be a flex item.
+        // Safari has long-standing bugs sizing anchors as flex children;
+        // four rounds of className patches on a Link-wraps-Card structure
+        // (confirmed via live DevTools computed-width inspection) never
+        // resolved it, which is what this restructure is working around.
+        <Card key={stat.href} className="relative w-full transition-colors hover:bg-accent">
+          <Link href={stat.href} className="absolute inset-0" aria-label={stat.title} />
+          <CardHeader>
+            <CardTitle className="text-base font-medium">{stat.title}</CardTitle>
+            <CardDescription>{stat.description}</CardDescription>
+          </CardHeader>
+        </Card>
       ))}
     </div>
   )

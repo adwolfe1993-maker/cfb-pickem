@@ -30,14 +30,13 @@ export default function CommissionerHubPage() {
       <h1 className="text-2xl font-semibold">Commissioner Tools</h1>
 
       {TOOLS.map((tool) => (
-        <Link key={tool.href} href={tool.href} className="block w-full">
-          <Card className="w-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle className="text-base font-medium">{tool.title}</CardTitle>
-              <CardDescription>{tool.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
+        <Card key={tool.href} className="relative w-full transition-colors hover:bg-accent">
+          <Link href={tool.href} className="absolute inset-0" aria-label={tool.title} />
+          <CardHeader>
+            <CardTitle className="text-base font-medium">{tool.title}</CardTitle>
+            <CardDescription>{tool.description}</CardDescription>
+          </CardHeader>
+        </Card>
       ))}
     </div>
   )

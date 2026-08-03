@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import BuckLogo from './BuckLogo'
-import LogoutButton from './LogoutButton'
+import MobileNav from './MobileNav'
 
 export default async function SiteNav() {
   const supabase = await createClient()
@@ -18,8 +18,27 @@ export default async function SiteNav() {
     .eq('id', user.id)
     .single()
 
+  const links = [
+    { href: '/', label: 'Home' },
+    { href: '/team-name', label: 'Team Name' },
+    { href: '/picks', label: 'My Picks' },
+    { href: '/picks/status', label: "Who's Picked" },
+    { href: '/picks/grid', label: 'Pick Grid' },
+    { href: '/dn-history', label: 'D/N History' },
+    { href: '/win-the-week', label: 'Win the Week' },
+    { href: '/similarities', label: 'Similarities' },
+    { href: '/standings', label: 'Standings' },
+    ...(profile?.role === 'commissioner'
+      ? [
+          { href: '/commissioner/seasons', label: 'Manage Seasons' },
+          { href: '/commissioner/managed-profiles', label: 'Managed Profiles' },
+          { href: '/commissioner/invite', label: 'Invite Participant' },
+        ]
+      : []),
+  ]
+
   return (
-    <nav className="sticky top-0 z-50 flex items-center justify-between gap-4 bg-primary px-4 py-3 text-primary-foreground shadow-sm">
+    <nav className="sticky top-0 z-50 flex items-center justify-between gap-4 bg-primary px-4 py-3 text-primary-foreground shadow-sm relative">
       <Link href="/" className="flex items-center gap-2">
         <div className="rounded-full bg-background p-1">
           <BuckLogo className="h-6 w-6" />
@@ -29,51 +48,7 @@ export default async function SiteNav() {
         </span>
       </Link>
 
-      <div className="flex flex-wrap items-center gap-4 text-sm font-medium">
-        <Link href="/" className="hover:text-accent">
-          Home
-        </Link>
-        <Link href="/team-name" className="hover:text-accent">
-          Team Name
-        </Link>
-        <Link href="/picks" className="hover:text-accent">
-          My Picks
-        </Link>
-        <Link href="/picks/status" className="hover:text-accent">
-          Who&apos;s Picked
-        </Link>
-        <Link href="/picks/grid" className="hover:text-accent">
-          Pick Grid
-        </Link>
-        <Link href="/dn-history" className="hover:text-accent">
-          D/N History
-        </Link>
-        <Link href="/win-the-week" className="hover:text-accent">
-          Win the Week
-        </Link>
-        <Link href="/similarities" className="hover:text-accent">
-          Similarities
-        </Link>
-        <Link href="/standings" className="hover:text-accent">
-          Standings
-        </Link>
-        {profile?.role === 'commissioner' && (
-          <Link href="/commissioner/seasons" className="hover:text-accent">
-            Manage Seasons
-          </Link>
-        )}
-        {profile?.role === 'commissioner' && (
-          <Link href="/commissioner/managed-profiles" className="hover:text-accent">
-            Managed Profiles
-          </Link>
-        )}
-        {profile?.role === 'commissioner' && (
-          <Link href="/commissioner/invite" className="hover:text-accent">
-            Invite Participant
-          </Link>
-        )}
-        <LogoutButton />
-      </div>
+      <MobileNav links={links} />
     </nav>
   )
 }

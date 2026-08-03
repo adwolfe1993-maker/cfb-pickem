@@ -59,6 +59,11 @@ export default async function SiteNav() {
             Manage Seasons
           </Link>
         )}
+        {profile?.role === 'commissioner' && (
+          <Link href="/commissioner/managed-profiles" className="hover:text-accent">
+            Managed Profiles
+          </Link>
+        )}
         <LogoutButton />
       </div>
     </nav>

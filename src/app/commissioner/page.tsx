@@ -30,7 +30,7 @@ export default function CommissionerHubPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
       <h1 className="text-2xl font-semibold">Commissioner Tools</h1>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex w-full flex-col gap-3">
         {TOOLS.map((tool) => (
           <Link key={tool.href} href={tool.href} className="block w-full">
             <Card className="w-full transition-colors hover:bg-accent">

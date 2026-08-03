@@ -110,7 +110,8 @@ export default function LoginPage() {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   required
-                  placeholder="123456"
+                  placeholder="12345678"
+                  maxLength={8}
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   autoFocus

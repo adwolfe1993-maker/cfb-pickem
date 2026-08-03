@@ -31,6 +31,11 @@ type Pick = {
   confidence_points: number | null
 }
 
+type ManagedProfile = {
+  id: string
+  display_name: string
+}
+
 const CONFIDENCE_VALUES = [9, 8, 7, 6, 5, 4, 3, 2, 1]
 
 export default function PicksPage({
@@ -60,16 +65,24 @@ export default function PicksPage({
   const [savingGameId, setSavingGameId] = useState<string | null>(null)
   const [savingTiebreaker, setSavingTiebreaker] = useState(false)
   const [savingGotw, setSavingGotw] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const [dnHistory, setDnHistory] = useState<Record<string, string>>({})
+
+  // realUserId is who's actually logged in (whose session this is).
+  // activeProfileId is whose picks we're currently reading/writing — the
+  // same as realUserId by default, but can be switched to a managed
+  // profile (e.g. a grandparent sharing an inbox). Every picks/selections
+  // read and write in this page uses activeProfileId, never realUserId
+  // directly, so the rest of the component doesn't need to think about
+  // the distinction.
+  const [realUserId, setRealUserId] = useState<string | null>(null)
+  const [managedProfiles, setManagedProfiles] = useState<ManagedProfile[]>([])
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
+  const [activeProfileName, setActiveProfileName] = useState<string | null>(null)
 
   const supabase = createClient()
 
-  const loadData = async () => {
-    setLoading(true)
-    setError('')
-    setNotFound(false)
-
+  // Runs once: who's logged in, and who (if anyone) they manage.
+  const loadUserAndProfiles = async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -78,7 +91,54 @@ export default function PicksPage({
       router.push('/login')
       return
     }
-    setUserId(user.id)
+    setRealUserId(user.id)
+
+    const { data: managed } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .eq('managed_by', user.id)
+
+    setManagedProfiles(managed ?? [])
+
+    const storageKey = `activeProfileId:${user.id}`
+    const stored =
+      typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
+    const storedIsValid =
+      stored != null && (stored === user.id || (managed ?? []).some((m) => m.id === stored))
+
+    setActiveProfileId(storedIsValid ? stored! : user.id)
+  }
+
+  useEffect(() => {
+    loadUserAndProfiles()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSwitchProfile = (profileId: string) => {
+    if (!realUserId) return
+    window.localStorage.setItem(`activeProfileId:${realUserId}`, profileId)
+    setActiveProfileId(profileId)
+  }
+
+  // Runs on mount (once activeProfileId is known) and whenever the active
+  // profile or week changes. Everything here reads/writes as
+  // activeProfileId — the server-side RLS policies are what actually
+  // enforce that this is only allowed when activeProfileId is either
+  // realUserId itself or a profile realUserId manages.
+  const loadPicksData = async (profileId: string) => {
+    setLoading(true)
+    setError('')
+    setNotFound(false)
+
+    if (managedProfiles.length > 0 || profileId !== realUserId) {
+      setActiveProfileName(
+        profileId === realUserId
+          ? null
+          : managedProfiles.find((m) => m.id === profileId)?.display_name ?? null
+      )
+    } else {
+      setActiveProfileName(null)
+    }
 
     const { data: week } = await supabase
       .from('weeks')
@@ -117,7 +177,7 @@ export default function PicksPage({
         ? await supabase
             .from('picks')
             .select('game_id, picked_team, is_double_or_nothing, confidence_points')
-            .eq('user_id', user.id)
+            .eq('user_id', profileId)
             .in('game_id', gameIds)
         : { data: [] }
 
@@ -130,7 +190,7 @@ export default function PicksPage({
     const { data: selection } = await supabase
       .from('weekly_selections')
       .select('tiebreaker_team, gotw_away_score_prediction, gotw_home_score_prediction')
-      .eq('user_id', user.id)
+      .eq('user_id', profileId)
       .eq('week_id', weekId)
       .maybeSingle()
 
@@ -171,7 +231,7 @@ export default function PicksPage({
           ? await supabase
               .from('picks')
               .select('game_id, picked_team')
-              .eq('user_id', user.id)
+              .eq('user_id', profileId)
               .eq('is_double_or_nothing', true)
               .in('game_id', otherGameIds)
           : { data: [] }
@@ -183,18 +243,20 @@ export default function PicksPage({
         if (gWeekName) historyMap[p.picked_team] = gWeekName
       }
       setDnHistory(historyMap)
+    } else {
+      setDnHistory({})
     }
 
     setLoading(false)
   }
 
   useEffect(() => {
-    loadData()
+    if (activeProfileId) loadPicksData(activeProfileId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekId])
+  }, [activeProfileId, weekId])
 
   const handlePick = async (gameId: string, team: string) => {
-    if (!userId) return
+    if (!activeProfileId) return
     setSavingGameId(gameId)
     setError('')
 
@@ -205,7 +267,7 @@ export default function PicksPage({
       .from('picks')
       .upsert(
         {
-          user_id: userId,
+          user_id: activeProfileId,
           game_id: gameId,
           picked_team: team,
           ...(clearingDN ? { is_double_or_nothing: false } : {}),
@@ -225,7 +287,7 @@ export default function PicksPage({
   }
 
   const handleToggleDN = async (gameId: string) => {
-    if (!userId) return
+    if (!activeProfileId) return
     const currentPick = picks[gameId]
     if (!currentPick?.picked_team) return
 
@@ -242,7 +304,7 @@ export default function PicksPage({
         const { error: clearError } = await supabase
           .from('picks')
           .update({ is_double_or_nothing: false })
-          .eq('user_id', userId)
+          .eq('user_id', activeProfileId)
           .eq('game_id', existingDNGameId)
 
         if (clearError) {
@@ -261,7 +323,7 @@ export default function PicksPage({
     const { data, error } = await supabase
       .from('picks')
       .update({ is_double_or_nothing: !turningOff })
-      .eq('user_id', userId)
+      .eq('user_id', activeProfileId)
       .eq('game_id', gameId)
       .select('game_id, picked_team, is_double_or_nothing, confidence_points')
       .single()
@@ -276,7 +338,7 @@ export default function PicksPage({
   }
 
   const handleConfidenceChange = async (gameId: string, value: string) => {
-    if (!userId) return
+    if (!activeProfileId) return
     const currentPick = picks[gameId]
     if (!currentPick?.picked_team) return
 
@@ -288,7 +350,7 @@ export default function PicksPage({
     const { data, error } = await supabase
       .from('picks')
       .update({ confidence_points: parsed })
-      .eq('user_id', userId)
+      .eq('user_id', activeProfileId)
       .eq('game_id', gameId)
       .select('game_id, picked_team, is_double_or_nothing, confidence_points')
       .single()
@@ -303,7 +365,7 @@ export default function PicksPage({
   }
 
   const handleTiebreakerChange = async (team: string) => {
-    if (!userId) return
+    if (!activeProfileId) return
     setSavingTiebreaker(true)
     setTiebreakerError('')
 
@@ -315,7 +377,7 @@ export default function PicksPage({
     const { data, error } = await supabase
       .from('weekly_selections')
       .upsert(
-        { user_id: userId, week_id: weekId, tiebreaker_team: team },
+        { user_id: activeProfileId, week_id: weekId, tiebreaker_team: team },
         { onConflict: 'user_id,week_id' }
       )
       .select('tiebreaker_team')
@@ -331,7 +393,7 @@ export default function PicksPage({
   }
 
   const handleGotwPredictionBlur = async () => {
-    if (!userId) return
+    if (!activeProfileId) return
 
     const awayTrimmed = gotwAwayInput.trim()
     const homeTrimmed = gotwHomeInput.trim()
@@ -364,7 +426,7 @@ export default function PicksPage({
       .from('weekly_selections')
       .upsert(
         {
-          user_id: userId,
+          user_id: activeProfileId,
           week_id: weekId,
           gotw_away_score_prediction: awayParsed,
           gotw_home_score_prediction: homeParsed,
@@ -461,6 +523,27 @@ export default function PicksPage({
             <WeekSelector seasonId={seasonId} currentWeekId={weekId} viewSuffix="" />
           )}
         </div>
+
+        {managedProfiles.length > 0 && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-accent/40 px-3 py-2">
+            <label htmlFor="active-profile" className="text-sm font-medium">
+              Picking as:
+            </label>
+            <select
+              id="active-profile"
+              value={activeProfileId ?? ''}
+              onChange={(e) => handleSwitchProfile(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+            >
+              <option value={realUserId ?? ''}>Yourself</option>
+              {managedProfiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {games.length === 0 ? (
@@ -471,7 +554,9 @@ export default function PicksPage({
         <>
           <Card className={summaryComplete ? 'border-primary/40' : undefined}>
             <CardHeader>
-              <CardTitle className="text-base font-medium">Picks Summary</CardTitle>
+              <CardTitle className="text-base font-medium">
+                Picks Summary{activeProfileName ? ` — ${activeProfileName}` : ''}
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-1 text-sm">
               <p>

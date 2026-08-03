@@ -33,7 +33,7 @@ export default function CommissionerHubPage() {
       <div className="flex flex-col gap-3">
         {TOOLS.map((tool) => (
           <Link key={tool.href} href={tool.href}>
-            <Card className="transition-colors hover:bg-accent">
+            <Card className="w-full transition-colors hover:bg-accent">
               <CardHeader>
                 <CardTitle className="text-base font-medium">{tool.title}</CardTitle>
                 <CardDescription>{tool.description}</CardDescription>

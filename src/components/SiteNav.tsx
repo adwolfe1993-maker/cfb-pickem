@@ -29,11 +29,7 @@ export default async function SiteNav() {
     { href: '/similarities', label: 'Similarities' },
     { href: '/standings', label: 'Standings' },
     ...(profile?.role === 'commissioner'
-      ? [
-          { href: '/commissioner/seasons', label: 'Manage Seasons' },
-          { href: '/commissioner/managed-profiles', label: 'Managed Profiles' },
-          { href: '/commissioner/invite', label: 'Invite Participant' },
-        ]
+      ? [{ href: '/commissioner', label: 'Commissioner Tools' }]
       : []),
   ]
 

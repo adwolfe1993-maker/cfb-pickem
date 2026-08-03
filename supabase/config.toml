@@ -15,3 +15,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/create-managed-profile/deno.json"
 entrypoint = "./functions/create-managed-profile/index.ts"
+
+[functions.invite-participant]
+enabled = true
+verify_jwt = false
+import_map = "./functions/invite-participant/deno.json"
+entrypoint = "./functions/invite-participant/index.ts"

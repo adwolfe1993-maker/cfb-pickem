@@ -22,12 +22,7 @@ export default async function SiteNav() {
     { href: '/', label: 'Home' },
     { href: '/team-name', label: 'Team Name' },
     { href: '/picks', label: 'My Picks' },
-    { href: '/picks/status', label: "Who's Picked" },
-    { href: '/picks/grid', label: 'Pick Grid' },
-    { href: '/dn-history', label: 'D/N History' },
-    { href: '/win-the-week', label: 'Win the Week' },
-    { href: '/similarities', label: 'Similarities' },
-    { href: '/standings', label: 'Standings' },
+    { href: '/stats', label: 'Stats' },
     ...(profile?.role === 'commissioner'
       ? [{ href: '/commissioner', label: 'Commissioner Tools' }]
       : []),

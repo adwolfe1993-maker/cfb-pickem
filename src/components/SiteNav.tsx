@@ -33,6 +33,9 @@ export default async function SiteNav() {
         <Link href="/" className="hover:text-accent">
           Home
         </Link>
+        <Link href="/team-name" className="hover:text-accent">
+          Team Name
+        </Link>
         <Link href="/picks" className="hover:text-accent">
           My Picks
         </Link>

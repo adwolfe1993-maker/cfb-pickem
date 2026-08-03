@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -35,18 +34,16 @@ export default function StatsHubPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
       <h1 className="text-2xl font-semibold">Stats</h1>
 
-      <div className="flex w-full flex-col gap-3">
-        {STATS_PAGES.map((stat) => (
-          <Link key={stat.href} href={stat.href} className="block w-full">
-            <Card className="w-full transition-colors hover:bg-accent">
-              <CardHeader>
-                <CardTitle className="text-base font-medium">{stat.title}</CardTitle>
-                <CardDescription>{stat.description}</CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      {STATS_PAGES.map((stat) => (
+        <Link key={stat.href} href={stat.href} className="block w-full">
+          <Card className="w-full transition-colors hover:bg-accent">
+            <CardHeader>
+              <CardTitle className="text-base font-medium">{stat.title}</CardTitle>
+              <CardDescription>{stat.description}</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+      ))}
     </div>
   )
 }

@@ -13,87 +13,94 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-type Participant = {
-  id: string
-  display_name: string
+type AllowedEmail = {
   email: string
+  created_at: string
 }
 
 export default function InviteParticipantPage() {
-  const [participants, setParticipants] = useState<Participant[]>([])
+  const [allowed, setAllowed] = useState<AllowedEmail[]>([])
   const [email, setEmail] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(true)
-  const [inviting, setInviting] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [removingEmail, setRemovingEmail] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
   const supabase = createClient()
 
-  const loadParticipants = async () => {
-    // Only independent accounts — managed profiles have their own page
-    // and would be confusing mixed into this list.
+  const loadAllowed = async () => {
     const { data, error } = await supabase
-      .from('users')
-      .select('id, display_name, email')
-      .is('managed_by', null)
-      .order('display_name', { ascending: true })
+      .from('allowed_emails')
+      .select('email, created_at')
+      .order('created_at', { ascending: false })
 
     if (error) setError(error.message)
-    else setParticipants(data ?? [])
+    else setAllowed(data ?? [])
     setLoading(false)
   }
 
   useEffect(() => {
-    loadParticipants()
+    loadAllowed()
   }, [])
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    setInviting(true)
+    setAdding(true)
     setError('')
     setSuccessMsg('')
 
-    const { data, error: fnError } = await supabase.functions.invoke('invite-participant', {
-      body: { email, displayName },
-    })
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (fnError) {
-      const context = (fnError as unknown as { context?: Response }).context
-      const body = context ? await context.json().catch(() => null) : null
-      setError(body?.error ?? fnError.message)
-    } else if (data?.error) {
-      setError(data.error)
+    const { error } = await supabase
+      .from('allowed_emails')
+      .insert({ email: email.trim().toLowerCase(), invited_by: user?.id })
+
+    if (error) {
+      setError(error.code === '23505' ? 'That email is already on the list.' : error.message)
     } else {
-      setSuccessMsg(
-        data?.invite_email_sent
-          ? `Invited "${displayName}" — sign-in code sent to ${email}.`
-          : `Created "${displayName}", but the sign-in email failed to send (${data?.invite_email_error ?? 'unknown error'}). They can still request a code themselves at login.`
-      )
+      setSuccessMsg(`${email} can now sign in — send them the link whenever you're ready.`)
       setEmail('')
-      setDisplayName('')
-      loadParticipants()
+      loadAllowed()
     }
 
-    setInviting(false)
+    setAdding(false)
+  }
+
+  const handleRemove = async (emailToRemove: string) => {
+    setRemovingEmail(emailToRemove)
+    setError('')
+
+    const { error } = await supabase
+      .from('allowed_emails')
+      .delete()
+      .eq('email', emailToRemove)
+
+    if (error) setError(error.message)
+    else loadAllowed()
+
+    setRemovingEmail(null)
   }
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
       <h1 className="text-2xl font-semibold">Invite a Participant</h1>
       <p className="text-sm text-muted-foreground">
-        Creates the account and sends them a real sign-in code right away — this is the only
-        way new accounts get created. Public self-registration is disabled.
+        Add their email here, then just send them the site link — they enter their own email
+        to log in and set up their own profile. Public self-registration is otherwise blocked;
+        only addresses on this list can sign in.
       </p>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">New Invite</CardTitle>
+          <CardTitle className="text-lg">Add an Email</CardTitle>
           <CardDescription>Their real email — this is what they&apos;ll log in with.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleInvite} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
+          <form onSubmit={handleAdd} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="invite-email">Email</Label>
               <Input
                 id="invite-email"
@@ -104,36 +111,36 @@ export default function InviteParticipantPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invite-name">Display name</Label>
-              <Input
-                id="invite-name"
-                required
-                placeholder="e.g. Hannah"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </div>
-            <Button type="submit" disabled={inviting} className="self-start">
-              {inviting ? 'Inviting...' : 'Send Invite'}
+            <Button type="submit" disabled={adding}>
+              {adding ? 'Adding...' : 'Add to Allowlist'}
             </Button>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {successMsg && <p className="text-sm text-green-700">{successMsg}</p>}
           </form>
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {successMsg && <p className="mt-2 text-sm text-green-700">{successMsg}</p>}
         </CardContent>
       </Card>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Current Participants ({participants.length})</h2>
+        <h2 className="text-lg font-semibold">Allowed to Sign In ({allowed.length})</h2>
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : participants.length === 0 ? (
-          <p className="text-sm text-muted-foreground">None yet.</p>
+        ) : allowed.length === 0 ? (
+          <p className="text-sm text-muted-foreground">None yet — add one above.</p>
         ) : (
-          participants.map((p) => (
-            <div key={p.id} className="rounded-lg border border-border p-4">
-              <p className="font-medium">{p.display_name}</p>
-              <p className="text-xs text-muted-foreground">{p.email}</p>
+          allowed.map((a) => (
+            <div
+              key={a.email}
+              className="flex items-center justify-between rounded-lg border border-border p-4"
+            >
+              <p className="font-medium">{a.email}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={removingEmail === a.email}
+                onClick={() => handleRemove(a.email)}
+              >
+                {removingEmail === a.email ? 'Removing...' : 'Remove'}
+              </Button>
             </div>
           ))
         )}

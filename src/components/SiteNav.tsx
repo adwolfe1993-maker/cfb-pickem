@@ -20,7 +20,7 @@ export default async function SiteNav() {
 
   const links = [
     { href: '/', label: 'Home' },
-    { href: '/team-name', label: 'Team Name' },
+    { href: '/profile', label: 'Profile' },
     { href: '/picks', label: 'My Picks' },
     { href: '/stats', label: 'Stats' },
     ...(profile?.role === 'commissioner'

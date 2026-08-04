@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import FootballField from '@/components/FootballField'
 import EnableNotifications from '@/components/EnableNotifications'
 import {
@@ -63,6 +64,9 @@ export default async function HomePage() {
           <div className="border-t border-border pt-3">
             <EnableNotifications />
           </div>
+          <Link href="/feedback" className="text-xs text-muted-foreground hover:underline">
+            Something not working? Report it →
+          </Link>
         </CardContent>
       </Card>
     </div>

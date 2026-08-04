@@ -22,6 +22,11 @@ const TOOLS = [
     title: 'Managed Profiles',
     description: "For participants who share an inbox and can't get their own sign-in code.",
   },
+  {
+    href: '/commissioner/feedback',
+    title: 'Feedback',
+    description: 'See what participants have reported and mark issues resolved.',
+  },
 ]
 
 export default function CommissionerHubPage() {

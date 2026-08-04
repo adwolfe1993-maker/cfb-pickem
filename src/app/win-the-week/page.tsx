@@ -68,8 +68,8 @@ export default async function WinTheWeekPage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Win the Week History</h1>
-        <Link href="/" className="text-sm font-medium text-primary underline underline-offset-4">
-          ← Home
+        <Link href="/stats" className="text-sm font-medium text-primary underline underline-offset-4">
+          ← Stats
         </Link>
       </div>
       <p className="text-sm text-muted-foreground">

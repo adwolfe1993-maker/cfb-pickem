@@ -25,7 +25,7 @@ const STATS_PAGES = [
   {
     href: '/similarities',
     title: 'Similarities',
-    description: 'Pairwise pick agreement — your most and least similar picker.',
+    description: 'How often you and everyone else pick the same winners.',
   },
 ]
 

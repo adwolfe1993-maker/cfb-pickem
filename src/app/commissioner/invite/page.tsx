@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -86,6 +87,9 @@ export default function InviteParticipantPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
+      <Link href="/commissioner" className="text-sm text-muted-foreground hover:underline">
+        ← Commissioner Tools
+      </Link>
       <h1 className="text-2xl font-semibold">Invite a Participant</h1>
       <p className="text-sm text-muted-foreground">
         Add their email here, then just send them the site link — they enter their own email

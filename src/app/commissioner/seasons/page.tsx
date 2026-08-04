@@ -68,7 +68,12 @@ export default function SeasonsPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
-      <h1 className="text-2xl font-semibold">Seasons</h1>
+      <div>
+        <Link href="/commissioner" className="text-sm text-muted-foreground hover:underline">
+          ← Commissioner Tools
+        </Link>
+        <h1 className="text-2xl font-semibold">Seasons</h1>
+      </div>
 
       <Card>
         <CardHeader>

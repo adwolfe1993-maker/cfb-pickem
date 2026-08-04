@@ -53,8 +53,8 @@ export default async function StandingsPage({
   if (!season) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col gap-2 p-4 py-12">
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
-          ← Home
+        <Link href="/stats" className="text-sm text-muted-foreground hover:underline">
+          ← Stats
         </Link>
         <h1 className="text-2xl font-semibold">Season Not Found</h1>
       </div>
@@ -91,8 +91,8 @@ export default async function StandingsPage({
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-4 py-12">
       <div>
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
-          ← Home
+        <Link href="/stats" className="text-sm text-muted-foreground hover:underline">
+          ← Stats
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{season.name} Standings</h1>
       </div>

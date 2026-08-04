@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -93,6 +94,9 @@ export default function ManagedProfilesPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
+      <Link href="/commissioner" className="text-sm text-muted-foreground hover:underline">
+        ← Commissioner Tools
+      </Link>
       <h1 className="text-2xl font-semibold">Managed Profiles</h1>
       <p className="text-sm text-muted-foreground">
         For participants who share an inbox with someone else and can&apos;t get their own

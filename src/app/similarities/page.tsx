@@ -88,14 +88,14 @@ export default async function SimilaritiesPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Similarities Matrix</h1>
-        <Link href="/" className="text-sm font-medium text-primary underline underline-offset-4">
-          ← Home
+        <h1 className="text-2xl font-semibold">Similarities</h1>
+        <Link href="/stats" className="text-sm font-medium text-primary underline underline-offset-4">
+          ← Stats
         </Link>
       </div>
       <p className="text-sm text-muted-foreground">
-        See how often each participant picks the same team as everyone else, based on games
-        that have already kicked off.
+        See how often you and everyone else pick the same winners, based on games that have
+        already kicked off.
       </p>
 
       {rows.length === 0 ? (
@@ -129,7 +129,7 @@ export default async function SimilaritiesPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Full Matrix</CardTitle>
+              <CardTitle className="text-base">Everyone vs. Everyone</CardTitle>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <table className="w-full border-collapse text-sm">

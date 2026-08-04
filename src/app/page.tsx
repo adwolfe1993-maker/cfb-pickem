@@ -22,9 +22,20 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('display_name, role')
+    .select('display_name, role, welcomed_at')
     .eq('id', user.id)
     .single()
+
+  const isFirstVisit = !profile?.welcomed_at
+
+  // Fire the one-time "seen it" flag now, using the profile data already
+  // fetched above (from before this update) to decide what to render —
+  // mark_welcomed is a narrow RPC that only ever touches the caller's own
+  // welcomed_at, not a general update-your-own-row policy that could let
+  // someone edit their own role.
+  if (isFirstVisit) {
+    await supabase.rpc('mark_welcomed')
+  }
 
   return (
     <div className="relative flex flex-1 items-center justify-center p-4">
@@ -32,7 +43,9 @@ export default async function HomePage() {
 
       <Card className="relative z-10 w-full max-w-sm shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl">The Buck Stops Here</CardTitle>
+          <CardTitle className="text-2xl">
+            {isFirstVisit ? `Welcome, ${profile?.display_name}!` : 'The Buck Stops Here'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
           <div className="flex flex-col gap-1">

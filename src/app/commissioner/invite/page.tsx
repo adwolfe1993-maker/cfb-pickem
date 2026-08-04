@@ -16,12 +16,14 @@ import {
 
 type AllowedEmail = {
   email: string
+  default_display_name: string | null
   created_at: string
 }
 
 export default function InviteParticipantPage() {
   const [allowed, setAllowed] = useState<AllowedEmail[]>([])
   const [email, setEmail] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [removingEmail, setRemovingEmail] = useState<string | null>(null)
@@ -33,7 +35,7 @@ export default function InviteParticipantPage() {
   const loadAllowed = async () => {
     const { data, error } = await supabase
       .from('allowed_emails')
-      .select('email, created_at')
+      .select('email, default_display_name, created_at')
       .order('created_at', { ascending: false })
 
     if (error) setError(error.message)
@@ -55,15 +57,20 @@ export default function InviteParticipantPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const { error } = await supabase
-      .from('allowed_emails')
-      .insert({ email: email.trim().toLowerCase(), invited_by: user?.id })
+    const { error } = await supabase.from('allowed_emails').insert({
+      email: email.trim().toLowerCase(),
+      default_display_name: displayName.trim(),
+      invited_by: user?.id,
+    })
 
     if (error) {
       setError(error.code === '23505' ? 'That email is already on the list.' : error.message)
     } else {
-      setSuccessMsg(`${email} can now sign in — send them the link whenever you're ready.`)
+      setSuccessMsg(
+        `${displayName} can now sign in — send them the link whenever you're ready. They'll see "Welcome, ${displayName}!" the first time they log in.`
+      )
       setEmail('')
+      setDisplayName('')
       loadAllowed()
     }
 
@@ -100,11 +107,13 @@ export default function InviteParticipantPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Add an Email</CardTitle>
-          <CardDescription>Their real email — this is what they&apos;ll log in with.</CardDescription>
+          <CardDescription>
+            Their real email, and the name they&apos;ll be welcomed by on first login.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAdd} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="flex flex-1 flex-col gap-2">
+          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <Label htmlFor="invite-email">Email</Label>
               <Input
                 id="invite-email"
@@ -115,7 +124,17 @@ export default function InviteParticipantPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <Button type="submit" disabled={adding}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="invite-name">Display name</Label>
+              <Input
+                id="invite-name"
+                required
+                placeholder="e.g. Jake"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
+            <Button type="submit" disabled={adding} className="self-start">
               {adding ? 'Adding...' : 'Add to Allowlist'}
             </Button>
           </form>
@@ -136,7 +155,10 @@ export default function InviteParticipantPage() {
               key={a.email}
               className="flex items-center justify-between rounded-lg border border-border p-4"
             >
-              <p className="font-medium">{a.email}</p>
+              <div>
+                <p className="font-medium">{a.default_display_name ?? a.email}</p>
+                <p className="text-xs text-muted-foreground">{a.email}</p>
+              </div>
               <Button
                 size="sm"
                 variant="outline"

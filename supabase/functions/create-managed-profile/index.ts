@@ -54,36 +54,51 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { managingUserEmail, displayName, syntheticEmail } = await req.json()
-    if (!managingUserEmail || !displayName || !syntheticEmail) {
-      return new Response(
-        JSON.stringify({
-          error: 'managingUserEmail, displayName, and syntheticEmail are required',
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const { displayName, managingUserEmail, syntheticEmail, pending } = await req.json()
+    if (!displayName) {
+      return new Response(JSON.stringify({ error: 'displayName is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Resolve the managing user's real user_id from their email.
-    const { data: managingUser, error: managingUserError } = await adminClient
-      .from('users')
-      .select('id')
-      .eq('email', managingUserEmail)
-      .single()
+    // Pending mode: pre-created at invite time, before the managing
+    // user's own account exists yet. managed_by is left null and gets
+    // filled in later by claim_pending_managed_profile() on their first
+    // login. Non-pending mode (the original behavior, still used by the
+    // admin Managed Profiles tool) requires an existing managingUserEmail.
+    let managingUserId: string | null = null
+    if (!pending) {
+      if (!managingUserEmail) {
+        return new Response(
+          JSON.stringify({ error: 'managingUserEmail is required unless pending is true' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      const { data: managingUser, error: managingUserError } = await adminClient
+        .from('users')
+        .select('id')
+        .eq('email', managingUserEmail)
+        .single()
 
-    if (managingUserError || !managingUser) {
-      return new Response(
-        JSON.stringify({ error: `No existing user found with email ${managingUserEmail}` }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      if (managingUserError || !managingUser) {
+        return new Response(
+          JSON.stringify({ error: `No existing user found with email ${managingUserEmail}` }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      managingUserId = managingUser.id
     }
 
-    // Create the synthetic auth account. Nobody ever logs into this
-    // directly — it exists only to satisfy public.users' foreign key to
-    // auth.users. email_confirm: true avoids sending a confirmation email
-    // to it.
+    // Synthetic email — auto-generated for pending profiles (nobody needs
+    // to think about it), or explicitly provided for the admin tool's
+    // existing non-pending flow.
+    const emailToUse =
+      syntheticEmail ??
+      `thebuckstopshereapp+managed${crypto.randomUUID().slice(0, 8)}@gmail.com`
+
     const { data: newAuthUser, error: createError } = await adminClient.auth.admin.createUser({
-      email: syntheticEmail,
+      email: emailToUse,
       email_confirm: true,
     })
 
@@ -94,12 +109,9 @@ Deno.serve(async (req) => {
       )
     }
 
-    // handle_new_auth_user already inserted a public.users row with a
-    // garbage display_name derived from the synthetic email's local part —
-    // fix it and set managed_by in one follow-up update.
     const { error: updateError } = await adminClient
       .from('users')
-      .update({ display_name: displayName, managed_by: managingUser.id })
+      .update({ display_name: displayName, managed_by: managingUserId })
       .eq('id', newAuthUser.user.id)
 
     if (updateError) {
@@ -113,7 +125,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         id: newAuthUser.user.id,
         display_name: displayName,
-        managed_by: managingUser.id,
+        managed_by: managingUserId,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

@@ -17,6 +17,7 @@ import {
 type AllowedEmail = {
   email: string
   default_display_name: string | null
+  pending_managed_profile_name: string | null
   created_at: string
 }
 
@@ -24,6 +25,7 @@ export default function InviteParticipantPage() {
   const [allowed, setAllowed] = useState<AllowedEmail[]>([])
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [managedProfileName, setManagedProfileName] = useState('')
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [removingEmail, setRemovingEmail] = useState<string | null>(null)
@@ -35,7 +37,7 @@ export default function InviteParticipantPage() {
   const loadAllowed = async () => {
     const { data, error } = await supabase
       .from('allowed_emails')
-      .select('email, default_display_name, created_at')
+      .select('email, default_display_name, pending_managed_profile_name, created_at')
       .order('created_at', { ascending: false })
 
     if (error) setError(error.message)
@@ -57,23 +59,64 @@ export default function InviteParticipantPage() {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const { error } = await supabase.from('allowed_emails').insert({
-      email: email.trim().toLowerCase(),
-      default_display_name: displayName.trim(),
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedName = displayName.trim()
+    const trimmedManagedName = managedProfileName.trim()
+
+    const { error: insertError } = await supabase.from('allowed_emails').insert({
+      email: trimmedEmail,
+      default_display_name: trimmedName,
+      pending_managed_profile_name: trimmedManagedName || null,
       invited_by: user?.id,
     })
 
-    if (error) {
-      setError(error.code === '23505' ? 'That email is already on the list.' : error.message)
-    } else {
-      setSuccessMsg(
-        `${displayName} can now sign in — send them the link whenever you're ready. They'll see "Welcome, ${displayName}!" the first time they log in.`
-      )
-      setEmail('')
-      setDisplayName('')
-      loadAllowed()
+    if (insertError) {
+      setError(insertError.code === '23505' ? 'That email is already on the list.' : insertError.message)
+      setAdding(false)
+      return
     }
 
+    // If a managed profile name was given, pre-create that account now —
+    // it's unlinked (managed_by null) until the real person's first
+    // login, when claim_pending_managed_profile() links them together
+    // automatically. Nothing else for them to do.
+    if (trimmedManagedName) {
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
+        'create-managed-profile',
+        { body: { displayName: trimmedManagedName, pending: true } }
+      )
+
+      if (fnError || fnData?.error) {
+        const context = (fnError as unknown as { context?: Response })?.context
+        const body = context ? await context.json().catch(() => null) : null
+        setError(
+          `${trimmedName} was added, but pre-creating ${trimmedManagedName}'s profile failed: ${
+            body?.error ?? fnData?.error ?? fnError?.message
+          }`
+        )
+        setAdding(false)
+        loadAllowed()
+        return
+      }
+
+      await supabase
+        .from('allowed_emails')
+        .update({ pending_managed_profile_user_id: fnData.id })
+        .eq('email', trimmedEmail)
+
+      setSuccessMsg(
+        `${trimmedName} can now sign in — send them the link whenever you're ready. ${trimmedManagedName}'s profile is ready and will link to their account automatically on first login.`
+      )
+    } else {
+      setSuccessMsg(
+        `${trimmedName} can now sign in — send them the link whenever you're ready. They'll see "Welcome, ${trimmedName}!" the first time they log in.`
+      )
+    }
+
+    setEmail('')
+    setDisplayName('')
+    setManagedProfileName('')
+    loadAllowed()
     setAdding(false)
   }
 
@@ -134,6 +177,22 @@ export default function InviteParticipantPage() {
                 onChange={(e) => setDisplayName(e.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="managed-name">
+                Managed profile name (optional)
+              </Label>
+              <Input
+                id="managed-name"
+                placeholder="e.g. Grandma — leave blank for most invites"
+                value={managedProfileName}
+                onChange={(e) => setManagedProfileName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Only for someone sharing this exact inbox with someone else, like a spouse. That
+                second person&apos;s profile gets set up automatically — the account holder never
+                has to do anything themselves.
+              </p>
+            </div>
             <Button type="submit" disabled={adding} className="self-start">
               {adding ? 'Adding...' : 'Add to Allowlist'}
             </Button>
@@ -158,6 +217,11 @@ export default function InviteParticipantPage() {
               <div>
                 <p className="font-medium">{a.default_display_name ?? a.email}</p>
                 <p className="text-xs text-muted-foreground">{a.email}</p>
+                {a.pending_managed_profile_name && (
+                  <p className="text-xs text-muted-foreground">
+                    + manages {a.pending_managed_profile_name}
+                  </p>
+                )}
               </div>
               <Button
                 size="sm"

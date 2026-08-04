@@ -35,6 +35,7 @@ export default async function HomePage() {
   // someone edit their own role.
   if (isFirstVisit) {
     await supabase.rpc('mark_welcomed')
+    await supabase.rpc('claim_pending_managed_profile')
   }
 
   return (

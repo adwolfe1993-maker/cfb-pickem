@@ -12,6 +12,7 @@ import StandingsExportTable from '@/components/StandingsExportTable'
 type SeasonStanding = {
   user_id: string
   display_name: string
+  team_name: string | null
   weeks_completed: number
   gross_score: number
   dropped_week_id: string | null

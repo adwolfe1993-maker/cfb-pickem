@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 type SeasonStanding = {
   user_id: string
   display_name: string
+  team_name: string | null
   weeks_completed: number
   gross_score: number
   dropped_week_id: string | null
@@ -95,15 +96,44 @@ export default function StandingsExportTable({
     }
   }
 
+  // Season standings tiebreak order: Net Score, then Gross Score, then
+  // Tiebreaker Avg — the same three columns shown in the table, in that
+  // order. Only falls back to alphabetical if literally all three match.
+  // Null tiebreaker_avg (no revealed tiebreaker picks yet) sorts last.
   const sorted = standings.slice().sort((a, b) => {
     if (b.net_score !== a.net_score) return b.net_score - a.net_score
     if (b.gross_score !== a.gross_score) return b.gross_score - a.gross_score
+    if (a.tiebreaker_avg == null && b.tiebreaker_avg != null) return 1
+    if (a.tiebreaker_avg != null && b.tiebreaker_avg == null) return -1
+    if (a.tiebreaker_avg != null && b.tiebreaker_avg != null && a.tiebreaker_avg !== b.tiebreaker_avg) {
+      return b.tiebreaker_avg - a.tiebreaker_avg
+    }
     return a.display_name.localeCompare(b.display_name)
   })
 
+  // Tie-aware rank for medal assignment — standard competition ranking
+  // (1224): two people tied for 1st both get gold, and the next distinct
+  // score is rank 3 (bronze), not rank 2. A genuine tie means matching on
+  // the FULL sort chain above (net, gross, tiebreaker avg), not just
+  // net_score — otherwise two people net_score-tied but actually separated
+  // by gross or tiebreaker would incorrectly share a medal.
+  const ranked = sorted.reduce<Array<SeasonStanding & { rank: number }>>((acc, row) => {
+    const prev = acc[acc.length - 1]
+    const tiedWithPrev =
+      prev &&
+      prev.net_score === row.net_score &&
+      prev.gross_score === row.gross_score &&
+      prev.tiebreaker_avg === row.tiebreaker_avg
+    const rank = tiedWithPrev ? prev.rank : acc.length + 1
+    acc.push({ ...row, rank })
+    return acc
+  }, [])
+
+  const MEDALS: Record<number, string> = { 1: '🏆 ', 2: '🥈 ', 3: '🥉 ' }
+
   return (
     <div className="flex flex-col gap-3">
-      {isCommissioner && sorted.length > 0 && (
+      {isCommissioner && ranked.length > 0 && (
         <div className="flex items-center gap-2 self-end">
           <Button size="sm" onClick={handleExport} disabled={exporting}>
             {exporting ? 'Exporting...' : 'Export PNG'}
@@ -112,7 +142,7 @@ export default function StandingsExportTable({
       )}
       {exportError && <p className="text-sm text-destructive">{exportError}</p>}
 
-      {sorted.length === 0 ? (
+      {ranked.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No completed weeks yet — standings will appear once the commissioner marks a week
           complete.
@@ -153,9 +183,6 @@ export default function StandingsExportTable({
                 <th style={{ textAlign: 'right', padding: '8px', fontWeight: 500, color: EXPORT_COLORS.foreground }}>
                   Tiebreaker Avg
                 </th>
-                <th style={{ textAlign: 'left', padding: '8px', fontWeight: 500, minWidth: '140px', color: EXPORT_COLORS.foreground }}>
-                  Dropped Week
-                </th>
                 {completedWeeks.map((w) => (
                   <th key={w.id} style={{ textAlign: 'right', padding: '8px', fontWeight: 500, color: EXPORT_COLORS.foreground }}>
                     {w.name}
@@ -164,7 +191,7 @@ export default function StandingsExportTable({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row, i) => (
+              {ranked.map((row) => (
                 <tr key={row.user_id} style={{ borderBottom: `1px solid ${EXPORT_COLORS.border}` }}>
                   <td
                     style={{
@@ -177,8 +204,18 @@ export default function StandingsExportTable({
                       backgroundColor: EXPORT_COLORS.background,
                     }}
                   >
-                    {i === 0 && '🏆 '}
-                    {row.display_name}
+                    {MEDALS[row.rank] ?? ''}
+                    {row.team_name ? (
+                      <>
+                        {row.team_name}
+                        <span style={{ color: EXPORT_COLORS.muted, fontWeight: 400 }}>
+                          {' '}
+                          ({row.display_name})
+                        </span>
+                      </>
+                    ) : (
+                      row.display_name
+                    )}
                     {row.user_id === currentUserId && (
                       <span style={{ color: EXPORT_COLORS.muted }}> (you)</span>
                     )}
@@ -195,21 +232,34 @@ export default function StandingsExportTable({
                   <td style={{ textAlign: 'right', padding: '8px', color: EXPORT_COLORS.muted }}>
                     {row.tiebreaker_avg != null ? row.tiebreaker_avg.toFixed(1) : '—'}
                   </td>
-                  <td style={{ padding: '8px', color: EXPORT_COLORS.muted }}>
-                    {row.dropped_week_name
-                      ? `${row.dropped_week_name} (${row.dropped_week_score})`
-                      : '—'}
-                  </td>
-                  {completedWeeks.map((w) => (
-                    <td key={w.id} style={{ textAlign: 'right', padding: '8px', color: EXPORT_COLORS.foreground }}>
-                      {weekRawScores[w.id]?.[row.user_id] ?? '—'}
-                    </td>
-                  ))}
+                  {completedWeeks.map((w) => {
+                    const isDropped = row.dropped_week_id === w.id
+                    return (
+                      <td
+                        key={w.id}
+                        style={{
+                          textAlign: 'right',
+                          padding: '8px',
+                          color: isDropped ? EXPORT_COLORS.muted : EXPORT_COLORS.foreground,
+                          textDecoration: isDropped ? 'line-through' : 'none',
+                        }}
+                        title={isDropped ? 'Dropped week — excluded from Net Score' : undefined}
+                      >
+                        {weekRawScores[w.id]?.[row.user_id] ?? '—'}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {ranked.some((r) => r.dropped_week_id) && (
+        <p style={{ fontSize: '12px', color: EXPORT_COLORS.muted }}>
+          <span style={{ textDecoration: 'line-through' }}>Struck-through</span> score = that
+          participant&apos;s dropped week, excluded from Net Score.
+        </p>
       )}
     </div>
   )

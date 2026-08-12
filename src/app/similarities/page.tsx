@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import SimilaritiesMatrix from '@/components/SimilaritiesMatrix'
 
 type MatrixRow = {
   user_a_id: string
@@ -85,6 +86,32 @@ export default async function SimilaritiesPage() {
     nameById[a].localeCompare(nameById[b])
   )
 
+  // Below this many shared revealed games, a "100% agreement" is often
+  // just 1-for-1 luck, not a real pattern — misleading as a headline stat
+  // next to someone with 15 games at 93%. Prefer pairs/edges that clear
+  // this bar; only fall back to the full set if nobody has yet (early
+  // season, few games revealed so far).
+  const MIN_GAMES_FOR_HEADLINE = 3
+
+  const myEdges = edgesByUser[user.id] ?? []
+  const myQualifyingEdges = myEdges.filter((e) => e.compared >= MIN_GAMES_FOR_HEADLINE)
+  const myEdgePool = myQualifyingEdges.length > 0 ? myQualifyingEdges : myEdges
+  const myMost = myEdgePool.length > 0
+    ? myEdgePool.reduce((a, b) => (b.rate > a.rate ? b : a))
+    : null
+  const myLeast = myEdgePool.length > 0
+    ? myEdgePool.reduce((a, b) => (b.rate < a.rate ? b : a))
+    : null
+
+  const qualifyingRows = rows.filter((r) => r.games_compared >= MIN_GAMES_FOR_HEADLINE)
+  const rowPool = qualifyingRows.length > 0 ? qualifyingRows : rows
+  const mostSimilarPair = rowPool.length > 0
+    ? rowPool.reduce((a, b) => (b.agreement_rate > a.agreement_rate ? b : a))
+    : null
+  const leastSimilarPair = rowPool.length > 0
+    ? rowPool.reduce((a, b) => (b.agreement_rate < a.agreement_rate ? b : a))
+    : null
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 py-8">
       <div className="flex items-center justify-between">
@@ -104,70 +131,53 @@ export default async function SimilaritiesPage() {
         </p>
       ) : (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Most / Least Similar</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="flex flex-col gap-2">
-                {participantIds.map((uid) => {
-                  const edges = edgesByUser[uid]
-                  const most = edges.reduce((a, b) => (b.rate > a.rate ? b : a))
-                  const least = edges.reduce((a, b) => (b.rate < a.rate ? b : a))
-                  return (
-                    <li key={uid} className="text-sm">
-                      <span className="font-medium">{nameById[uid]}</span> — most similar to{' '}
-                      <span className="font-medium">{most.otherName}</span> ({most.rate}%),
-                      least similar to <span className="font-medium">{least.otherName}</span>{' '}
-                      ({least.rate}%)
-                    </li>
-                  )
-                })}
-              </ul>
-            </CardContent>
-          </Card>
+          {myMost && myLeast && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">You</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1 text-sm">
+                <p>
+                  Most similar to <span className="font-medium">{myMost.otherName}</span>{' '}
+                  ({myMost.rate}%)
+                </p>
+                <p>
+                  Least similar to <span className="font-medium">{myLeast.otherName}</span>{' '}
+                  ({myLeast.rate}%)
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Everyone vs. Everyone</CardTitle>
-            </CardHeader>
-            <CardContent className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr>
-                    <th className="border-b border-border p-2 text-left"></th>
-                    {participantIds.map((uid) => (
-                      <th key={uid} className="border-b border-border p-2 text-left font-medium">
-                        {nameById[uid]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {participantIds.map((rowId) => (
-                    <tr key={rowId}>
-                      <td className="border-b border-border p-2 font-medium">{nameById[rowId]}</td>
-                      {participantIds.map((colId) => {
-                        if (rowId === colId) {
-                          return (
-                            <td key={colId} className="border-b border-border p-2 text-muted-foreground">
-                              —
-                            </td>
-                          )
-                        }
-                        const edge = edgesByUser[rowId].find((e) => e.otherId === colId)
-                        return (
-                          <td key={colId} className="border-b border-border p-2">
-                            {edge ? `${edge.rate}%` : '—'}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
+          {mostSimilarPair && leastSimilarPair && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">League-Wide</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1 text-sm">
+                <p>
+                  Most in sync:{' '}
+                  <span className="font-medium">
+                    {mostSimilarPair.user_a_name} &amp; {mostSimilarPair.user_b_name}
+                  </span>{' '}
+                  ({mostSimilarPair.agreement_rate}%)
+                </p>
+                <p>
+                  Furthest apart:{' '}
+                  <span className="font-medium">
+                    {leastSimilarPair.user_a_name} &amp; {leastSimilarPair.user_b_name}
+                  </span>{' '}
+                  ({leastSimilarPair.agreement_rate}%)
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <SimilaritiesMatrix
+            participantIds={participantIds}
+            nameById={nameById}
+            edgesByUser={edgesByUser}
+          />
         </>
       )}
     </div>

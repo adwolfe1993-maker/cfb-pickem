@@ -50,7 +50,8 @@ export default async function HomePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
-          <div className="flex flex-col gap-1">
+          <EnableNotifications />
+          <div className="flex flex-col gap-1 border-t border-border pt-3">
             <p>
               Logged in as <span className="font-medium">{user.email}</span>
             </p>
@@ -60,9 +61,6 @@ export default async function HomePage() {
             <p>
               Role <span className="font-medium">{profile?.role ?? '—'}</span>
             </p>
-          </div>
-          <div className="border-t border-border pt-3">
-            <EnableNotifications />
           </div>
           <Link href="/feedback" className="text-xs text-muted-foreground hover:underline">
             Something not working? Report it →

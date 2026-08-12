@@ -17,9 +17,9 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export default function EnableNotifications() {
-  const [status, setStatus] = useState<'checking' | 'enabled' | 'disabled' | 'unsupported'>(
-    'checking'
-  )
+  const [status, setStatus] = useState<
+    'checking' | 'enabled' | 'disabled' | 'unsupported' | 'ios-not-installed'
+  >('checking')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -27,6 +27,22 @@ export default function EnableNotifications() {
   }, [])
 
   async function checkStatus() {
+    // iOS only exposes push to an installed (Add to Home Screen) PWA —
+    // from inside Safari itself, Notification.requestPermission()/
+    // pushManager.subscribe() either fail outright or behave
+    // inconsistently. Detect that case specifically and point the person
+    // at the actual fix (install first) instead of letting them hit a
+    // confusing generic failure from the button below.
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true
+
+    if (isIOS && !isStandalone) {
+      setStatus('ios-not-installed')
+      return
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setStatus('unsupported')
       return
@@ -88,13 +104,30 @@ export default function EnableNotifications() {
       </p>
     )
   }
+  if (status === 'ios-not-installed') {
+    return (
+      <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/50 p-3">
+        <p className="text-xs font-medium">Get pick reminders on your phone</p>
+        <p className="text-xs text-muted-foreground">
+          On iPhone, notifications only work once the app is added to your Home Screen.
+          Tap the Share icon in Safari, then &quot;Add to Home Screen&quot; — open it from
+          there and this will let you turn notifications on.
+        </p>
+      </div>
+    )
+  }
   if (status === 'enabled') {
     return <p className="text-xs text-muted-foreground">✅ Notifications enabled</p>
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <Button size="sm" onClick={handleEnable}>
+    <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/50 p-3">
+      <p className="text-xs font-medium">Get pick reminders on your phone</p>
+      <p className="text-xs text-muted-foreground">
+        Missed picks score zero, no exceptions — notifications are how you&apos;ll know when
+        picks open and when kickoff is close.
+      </p>
+      <Button size="sm" onClick={handleEnable} className="mt-1 self-start">
         Enable Notifications
       </Button>
       {error && <p className="text-xs text-destructive">{error}</p>}

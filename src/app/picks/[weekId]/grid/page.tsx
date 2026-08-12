@@ -52,7 +52,9 @@ export default async function PickGridPage({
 
   const { data: games } = await supabase
     .from('games')
-    .select('id, away_team, home_team, kickoff_time, game_of_week, status')
+    .select(
+      'id, away_team, home_team, kickoff_time, game_of_week, status, away_score, home_score, winner'
+    )
     .eq('week_id', weekId)
     .order('kickoff_time', { ascending: true })
 
@@ -70,7 +72,9 @@ export default async function PickGridPage({
     gameIds.length > 0
       ? await supabase
           .from('picks')
-          .select('user_id, game_id, picked_team, is_double_or_nothing, confidence_points')
+          .select(
+            'user_id, game_id, picked_team, is_double_or_nothing, confidence_points, is_correct'
+          )
           .in('game_id', gameIds)
       : { data: [] }
 
@@ -113,12 +117,24 @@ export default async function PickGridPage({
                   {(games ?? []).map((g) => {
                     const locked = new Date(g.kickoff_time).getTime() <= now
                     const canceled = g.status === 'canceled'
+                    const final = g.status === 'final'
                     return (
                       <th key={g.id} className="min-w-[110px] px-2 py-2 text-left font-medium">
                         <div className="flex flex-col gap-1">
                           <span className="whitespace-nowrap">
-                            {g.away_team} @ {g.home_team}
+                            <span className={g.winner === g.away_team ? 'font-semibold' : ''}>
+                              {g.away_team}
+                            </span>
+                            {' @ '}
+                            <span className={g.winner === g.home_team ? 'font-semibold' : ''}>
+                              {g.home_team}
+                            </span>
                           </span>
+                          {final && g.away_score != null && g.home_score != null && (
+                            <span className="whitespace-nowrap text-xs text-muted-foreground">
+                              Final: {g.away_score}–{g.home_score}
+                            </span>
+                          )}
                           <div className="flex gap-1">
                             {g.game_of_week && <Badge className="text-[10px]">GOTW</Badge>}
                             {canceled ? (
@@ -156,7 +172,22 @@ export default async function PickGridPage({
                       return (
                         <td key={g.id} className="px-2 py-2">
                           {pick?.picked_team ? (
-                            <div className="flex items-center gap-1">
+                            <div
+                              className={
+                                'flex items-center gap-1' +
+                                (pick.is_correct === true
+                                  ? ' text-green-600 dark:text-green-500'
+                                  : pick.is_correct === false
+                                    ? ' text-destructive'
+                                    : '')
+                              }
+                            >
+                              {pick.is_correct === true && (
+                                <span aria-label="Correct pick">✓</span>
+                              )}
+                              {pick.is_correct === false && (
+                                <span aria-label="Incorrect pick">✗</span>
+                              )}
                               <span>{pick.picked_team}</span>
                               {pick.is_double_or_nothing && (
                                 <Badge variant="secondary" className="text-[10px]">

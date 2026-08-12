@@ -22,6 +22,9 @@ type Game = {
   tv_network: string | null
   game_of_week: boolean
   status: string
+  away_score: number | null
+  home_score: number | null
+  winner: string | null
 }
 
 type Pick = {
@@ -29,6 +32,7 @@ type Pick = {
   picked_team: string
   is_double_or_nothing: boolean
   confidence_points: number | null
+  is_correct: boolean | null
 }
 
 type ManagedProfile = {
@@ -164,7 +168,9 @@ export default function PicksPage({
 
     const { data: gamesData } = await supabase
       .from('games')
-      .select('id, away_team, home_team, kickoff_time, tv_network, game_of_week, status')
+      .select(
+        'id, away_team, home_team, kickoff_time, tv_network, game_of_week, status, away_score, home_score, winner'
+      )
       .eq('week_id', weekId)
       .order('kickoff_time', { ascending: true })
 
@@ -176,7 +182,7 @@ export default function PicksPage({
       gameIds.length > 0
         ? await supabase
             .from('picks')
-            .select('game_id, picked_team, is_double_or_nothing, confidence_points')
+            .select('game_id, picked_team, is_double_or_nothing, confidence_points, is_correct')
             .eq('user_id', profileId)
             .in('game_id', gameIds)
         : { data: [] }
@@ -274,7 +280,7 @@ export default function PicksPage({
         },
         { onConflict: 'user_id,game_id' }
       )
-      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points, is_correct')
       .single()
 
     if (error) {
@@ -325,7 +331,7 @@ export default function PicksPage({
       .update({ is_double_or_nothing: !turningOff })
       .eq('user_id', activeProfileId)
       .eq('game_id', gameId)
-      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points, is_correct')
       .single()
 
     if (error) {
@@ -352,7 +358,7 @@ export default function PicksPage({
       .update({ confidence_points: parsed })
       .eq('user_id', activeProfileId)
       .eq('game_id', gameId)
-      .select('game_id, picked_team, is_double_or_nothing, confidence_points')
+      .select('game_id, picked_team, is_double_or_nothing, confidence_points, is_correct')
       .single()
 
     if (error) {
@@ -694,11 +700,45 @@ export default function PicksPage({
                   .filter((v): v is number => v != null)
               )
 
+              const final = game.status === 'final'
+              const inProgress = locked && !final && !canceled
+
+              // Result relative to this participant's own pick, for the
+              // audit-style Win/Loss/In Progress badge below — mirrors the
+              // is_correct field the scoring engine already computes, plus
+              // an explicit "Missed" case for a locked game with no pick at
+              // all (scores 0 per charter 4.3, same as an incorrect pick).
+              let resultLabel: string | null = null
+              let resultVariant: 'default' | 'secondary' | 'destructive' | 'outline' = 'outline'
+              if (canceled) {
+                resultLabel = null
+              } else if (final) {
+                if (!pick?.picked_team) {
+                  resultLabel = 'Missed'
+                  resultVariant = 'destructive'
+                } else if (pick.is_correct === true) {
+                  resultLabel = 'Win'
+                  resultVariant = 'default'
+                } else if (pick.is_correct === false) {
+                  resultLabel = 'Loss'
+                  resultVariant = 'destructive'
+                }
+              } else if (inProgress) {
+                resultLabel = 'In Progress'
+                resultVariant = 'secondary'
+              }
+
               return (
                 <Card key={game.id}>
                   <CardHeader className="flex flex-row items-start justify-between gap-2 pb-2">
                     <CardTitle className="text-base font-medium">
-                      {game.away_team} @ {game.home_team}
+                      <span className={game.winner === game.away_team ? 'font-semibold' : ''}>
+                        {game.away_team}
+                      </span>
+                      {' @ '}
+                      <span className={game.winner === game.home_team ? 'font-semibold' : ''}>
+                        {game.home_team}
+                      </span>
                     </CardTitle>
                     <div className="flex shrink-0 gap-1">
                       {game.game_of_week && <Badge>Game of the Week</Badge>}
@@ -721,6 +761,9 @@ export default function PicksPage({
                         minute: '2-digit',
                       })}
                       {game.tv_network ? ` · ${game.tv_network}` : ''}
+                      {final && game.away_score != null && game.home_score != null && (
+                        <span> · Final: {game.away_score}–{game.home_score}</span>
+                      )}
                     </p>
 
                     {locked || canceled ? (
@@ -737,6 +780,11 @@ export default function PicksPage({
                         {isConferenceTitle && pick?.confidence_points != null && (
                           <Badge variant="secondary" className="ml-2">
                             Confidence: {pick.confidence_points}
+                          </Badge>
+                        )}
+                        {resultLabel && (
+                          <Badge variant={resultVariant} className="ml-2">
+                            {resultLabel}
                           </Badge>
                         )}
                       </p>

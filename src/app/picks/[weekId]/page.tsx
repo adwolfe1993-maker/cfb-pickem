@@ -522,6 +522,27 @@ export default function PicksPage({
       Boolean(tiebreakerTeam) &&
       (!gameOfWeek || gotwComplete)
 
+  // Plain-language list of what's still outstanding, for the explicit
+  // status banner below — people were reading the itemized checklist and
+  // still weren't sure whether they were actually done, so this collapses
+  // it into one unambiguous yes/no statement instead of five things to
+  // individually verify.
+  const incompleteItems: string[] = []
+  if (!allPicked) {
+    incompleteItems.push(
+      `${missingGames.length} winner${missingGames.length === 1 ? '' : 's'}`
+    )
+  }
+  if (isConferenceTitle) {
+    if (!allConfidenceAssigned) incompleteItems.push('confidence points')
+  } else {
+    if (!dnTeam) incompleteItems.push('Double or Nothing')
+  }
+  if (!tiebreakerTeam) incompleteItems.push('Tiebreaker / Highest Scoring Team')
+  if (!isConferenceTitle && gameOfWeek && !gotwComplete) {
+    incompleteItems.push('Game of the Week prediction')
+  }
+
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 py-12">
       <div className="flex flex-col gap-2">
@@ -575,52 +596,67 @@ export default function PicksPage({
                 Picks Summary{activeProfileName ? ` — ${activeProfileName}` : ''}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-1 text-sm">
-              <p>
-                {allPicked ? '✅' : '⚠️'} Winners picked: {pickedCount} of{' '}
-                {pickableGames.length}
-                {!allPicked && missingGames.length > 0 && (
-                  <span className="text-muted-foreground">
-                    {' '}
-                    — missing:{' '}
-                    {missingGames.map((g) => `${g.away_team} @ ${g.home_team}`).join(', ')}
-                  </span>
-                )}
-              </p>
+            <CardContent className="flex flex-col gap-3 text-sm">
+              <div
+                className={
+                  'rounded-md px-3 py-2 font-semibold ' +
+                  (summaryComplete
+                    ? 'bg-green-600/10 text-green-700'
+                    : 'bg-destructive/10 text-destructive')
+                }
+              >
+                {summaryComplete
+                  ? `✅ You're done for this week${activeProfileName ? `, ${activeProfileName}` : ''}!`
+                  : `⚠️ Not done yet — still need: ${incompleteItems.join(', ')}`}
+              </div>
 
-              {isConferenceTitle ? (
+              <div className="flex flex-col gap-1">
                 <p>
-                  {allConfidenceAssigned ? '✅' : '⚠️'} Confidence points assigned:{' '}
-                  {assignedConfidenceValues.size} of 9
-                  {!allConfidenceAssigned && (
+                  {allPicked ? '✅' : '⚠️'} Winners picked: {pickedCount} of{' '}
+                  {pickableGames.length}
+                  {!allPicked && missingGames.length > 0 && (
                     <span className="text-muted-foreground">
                       {' '}
-                      — missing: {missingConfidenceValues.join(', ')}
+                      — missing:{' '}
+                      {missingGames.map((g) => `${g.away_team} @ ${g.home_team}`).join(', ')}
                     </span>
                   )}
                 </p>
-              ) : (
-                <p>
-                  {dnTeam ? '✅' : '⚠️'} Double or Nothing:{' '}
-                  <span className="font-medium">{dnTeam ?? 'not selected'}</span>
-                </p>
-              )}
 
-              <p>
-                {tiebreakerTeam ? '✅' : '⚠️'} Tiebreaker / Highest Scoring Team:{' '}
-                <span className="font-medium">{tiebreakerTeam ?? 'not selected'}</span>
-              </p>
+                {isConferenceTitle ? (
+                  <p>
+                    {allConfidenceAssigned ? '✅' : '⚠️'} Confidence points assigned:{' '}
+                    {assignedConfidenceValues.size} of 9
+                    {!allConfidenceAssigned && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        — missing: {missingConfidenceValues.join(', ')}
+                      </span>
+                    )}
+                  </p>
+                ) : (
+                  <p>
+                    {dnTeam ? '✅' : '⚠️'} Double or Nothing:{' '}
+                    <span className="font-medium">{dnTeam ?? 'not selected'}</span>
+                  </p>
+                )}
 
-              {!isConferenceTitle && gameOfWeek && (
                 <p>
-                  {gotwComplete ? '✅' : '⚠️'} Game of the Week prediction:{' '}
-                  <span className="font-medium">
-                    {gotwComplete
-                      ? `${gameOfWeek.away_team} ${gotwAwayPrediction} – ${gameOfWeek.home_team} ${gotwHomePrediction}`
-                      : 'not entered'}
-                  </span>
+                  {tiebreakerTeam ? '✅' : '⚠️'} Tiebreaker / Highest Scoring Team:{' '}
+                  <span className="font-medium">{tiebreakerTeam ?? 'not selected'}</span>
                 </p>
-              )}
+
+                {!isConferenceTitle && gameOfWeek && (
+                  <p>
+                    {gotwComplete ? '✅' : '⚠️'} Game of the Week prediction:{' '}
+                    <span className="font-medium">
+                      {gotwComplete
+                        ? `${gameOfWeek.away_team} ${gotwAwayPrediction} – ${gameOfWeek.home_team} ${gotwHomePrediction}`
+                        : 'not entered'}
+                    </span>
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 

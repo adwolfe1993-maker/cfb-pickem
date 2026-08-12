@@ -542,7 +542,7 @@ export default function PicksPage({
   if (isConferenceTitle) {
     if (!allConfidenceAssigned) incompleteItems.push('confidence points')
   } else {
-    if (!dnTeam) incompleteItems.push('Double or Nothing')
+    if (!dnTeam) incompleteItems.push('Bonus Team')
   }
   if (!tiebreakerTeam) incompleteItems.push('Tiebreaker / Highest Scoring Team')
   if (!isConferenceTitle && gameOfWeek && !gotwComplete) {
@@ -642,7 +642,7 @@ export default function PicksPage({
                   </p>
                 ) : (
                   <p>
-                    {dnTeam ? '✅' : '⚠️'} Double or Nothing:{' '}
+                    {dnTeam ? '✅' : '⚠️'} Bonus Team:{' '}
                     <span className="font-medium">{dnTeam ?? 'not selected'}</span>
                   </p>
                 )}
@@ -774,7 +774,7 @@ export default function PicksPage({
                         </span>
                         {pick?.is_double_or_nothing && (
                           <Badge variant="secondary" className="ml-2">
-                            D/N
+                            Bonus Team
                           </Badge>
                         )}
                         {isConferenceTitle && pick?.confidence_points != null && (
@@ -842,7 +842,7 @@ export default function PicksPage({
                         {pick?.picked_team && !isConferenceTitle && (
                           alreadyUsedElsewhere ? (
                             <p className="text-sm text-muted-foreground">
-                              Double or Nothing unavailable — {pick.picked_team} was already
+                              Bonus Team unavailable — {pick.picked_team} was already
                               used in {usedWeek}
                             </p>
                           ) : (
@@ -854,7 +854,7 @@ export default function PicksPage({
                                 onChange={() => handleToggleDN(game.id)}
                                 className="h-4 w-4 accent-primary"
                               />
-                              Double or Nothing on {pick.picked_team}
+                              Bonus Team on {pick.picked_team}
                             </label>
                           )
                         )}
@@ -951,7 +951,7 @@ export default function PicksPage({
             <Card>
               <CardHeader>
                 <CardTitle className="text-base font-medium">
-                  Double or Nothing History ({seasonName})
+                  Bonus Team History ({seasonName})
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-1">

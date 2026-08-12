@@ -107,13 +107,13 @@ export default async function DnHistoryPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Double or Nothing History</h1>
+        <h1 className="text-2xl font-semibold">Bonus Team History</h1>
         <Link href="/stats" className="text-sm font-medium text-primary underline underline-offset-4">
           ← Stats
         </Link>
       </div>
       <p className="text-sm text-muted-foreground">
-        Every team used as a Double or Nothing pick this season, revealed once that game&apos;s
+        Every team used as a Bonus Team pick this season, revealed once that game&apos;s
         kickoff has passed. Each team can only be used once per season.
       </p>
 
@@ -132,7 +132,7 @@ export default async function DnHistoryPage() {
               </CardHeader>
               <CardContent>
                 {history.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No D/N picks revealed yet.</p>
+                  <p className="text-sm text-muted-foreground">No Bonus Team picks revealed yet.</p>
                 ) : (
                   <ul className="flex flex-col gap-1.5">
                     {history.map((h, i) => (

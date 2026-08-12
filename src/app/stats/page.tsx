@@ -19,8 +19,8 @@ const STATS_PAGES = [
   },
   {
     href: '/dn-history',
-    title: 'D/N History',
-    description: "Everyone's Double or Nothing selections this season.",
+    title: 'Bonus Team History',
+    description: "Everyone's Bonus Team selections this season.",
   },
   {
     href: '/similarities',

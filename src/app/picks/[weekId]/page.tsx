@@ -479,6 +479,23 @@ export default function PicksPage({
     new Set(games.flatMap((g) => [g.away_team, g.home_team]))
   ).sort()
 
+  // A team is locked for Tiebreaker/HST selection once its game has kicked
+  // off — same kickoff <= now rule used to lock individual game picks below.
+  // Otherwise a participant could pick a team from an already-started (or
+  // finished) game with the result already known.
+  const lockedTeams = new Set(
+    games
+      .filter((g) => new Date(g.kickoff_time).getTime() <= now)
+      .flatMap((g) => [g.away_team, g.home_team])
+  )
+
+  // Keep the currently-selected team visible even if it has since locked,
+  // so the <select> doesn't end up showing a value with no matching
+  // option. Every other locked team is excluded from the list entirely.
+  const selectableTeams = allTeams.filter(
+    (team) => !lockedTeams.has(team) || team === tiebreakerTeam
+  )
+
   const gameOfWeek = games.find((g) => g.game_of_week)
   const gotwLocked = gameOfWeek ? new Date(gameOfWeek.kickoff_time).getTime() <= now : false
   const gotwComplete = gotwAwayPrediction != null && gotwHomePrediction != null
@@ -827,14 +844,21 @@ export default function PicksPage({
                 className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-50"
               >
                 <option value="">— Select a team —</option>
-                {allTeams.map((team) => (
+                {selectableTeams.map((team) => (
                   <option key={team} value={team}>
                     {team}
+                    {lockedTeams.has(team) ? ' (Locked)' : ''}
                   </option>
                 ))}
               </select>
               {tiebreakerError && (
                 <p className="text-sm text-destructive">{tiebreakerError}</p>
+              )}
+              {lockedTeams.size > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Teams from games that have already kicked off aren&apos;t
+                  available to select.
+                </p>
               )}
             </CardContent>
           </Card>

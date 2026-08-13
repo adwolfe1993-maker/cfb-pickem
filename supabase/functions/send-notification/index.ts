@@ -27,35 +27,48 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    const callerClient = createClient(supabaseUrl, serviceRoleKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-
-    const {
-      data: { user },
-      error: authError,
-    } = await callerClient.auth.getUser()
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    // Two ways to be authorized to send a broadcast notification:
+    //  1. A logged-in commissioner (existing path — the "Publish Week"
+    //     button calls this with the commissioner's own session).
+    //  2. The service role key itself, presented as the bearer token — the
+    //     automated notification cron jobs (notify_kickoff_reminder,
+    //     notify_all_games_finished) call this way via pg_net, since a
+    //     scheduled DB job has no user session to present. Only server-side
+    //     code that already holds the actual service role key can produce
+    //     this match; anon/authenticated callers never have that value.
+    const isSystemCall = authHeader === `Bearer ${serviceRoleKey}`
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
 
-    const { data: profile } = await adminClient
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profile?.role !== 'commissioner') {
-      return new Response(JSON.stringify({ error: 'Commissioner access required' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (!isSystemCall) {
+      const callerClient = createClient(supabaseUrl, serviceRoleKey, {
+        global: { headers: { Authorization: authHeader } },
       })
+
+      const {
+        data: { user },
+        error: authError,
+      } = await callerClient.auth.getUser()
+
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const { data: profile } = await adminClient
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'commissioner') {
+        return new Response(JSON.stringify({ error: 'Commissioner access required' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     const { title, body } = await req.json()

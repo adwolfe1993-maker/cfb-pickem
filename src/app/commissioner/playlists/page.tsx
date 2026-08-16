@@ -56,6 +56,60 @@ export default function CommissionerPlaylistsPage() {
   const [addTheme, setAddTheme] = useState('')
   const [addUrl, setAddUrl] = useState('')
   const [adding, setAdding] = useState(false)
+  const [themeAutoFilled, setThemeAutoFilled] = useState(false)
+
+  // Auto-fill the theme from a planned season_themes entry when year+week
+  // match one — season_themes is keyed by season_id, so this first has to
+  // resolve the season by name (seasons are named plainly by year, e.g.
+  // "2026"). Never overwrites something the commissioner already typed by
+  // hand, and clears itself if they change year/week away from the match.
+  useEffect(() => {
+    const year = parseInt(addYear, 10)
+    const week = parseInt(addWeek, 10)
+
+    if (!year || !week) {
+      if (themeAutoFilled) {
+        setAddTheme('')
+        setThemeAutoFilled(false)
+      }
+      return
+    }
+
+    let cancelled = false
+
+    const lookup = async () => {
+      const { data: season } = await supabase
+        .from('seasons')
+        .select('id')
+        .eq('name', String(year))
+        .maybeSingle()
+
+      if (!season || cancelled) return
+
+      const { data: themeRow } = await supabase
+        .from('season_themes')
+        .select('theme')
+        .eq('season_id', season.id)
+        .eq('week_number', week)
+        .maybeSingle()
+
+      if (cancelled) return
+
+      if (themeRow?.theme && (addTheme === '' || themeAutoFilled)) {
+        setAddTheme(themeRow.theme)
+        setThemeAutoFilled(true)
+      } else if (!themeRow?.theme && themeAutoFilled) {
+        setAddTheme('')
+        setThemeAutoFilled(false)
+      }
+    }
+
+    lookup()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addYear, addWeek])
 
   const [bulkText, setBulkText] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
@@ -188,6 +242,7 @@ export default function CommissionerPlaylistsPage() {
     setAddWeek('')
     setAddTheme('')
     setAddUrl('')
+    setThemeAutoFilled(false)
     loadPlaylists()
   }
 
@@ -334,9 +389,15 @@ export default function CommissionerPlaylistsPage() {
             <Input
               id="add-theme"
               value={addTheme}
-              onChange={(e) => setAddTheme(e.target.value)}
+              onChange={(e) => {
+                setAddTheme(e.target.value)
+                setThemeAutoFilled(false)
+              }}
               placeholder="e.g. Kickoff Weekend"
             />
+            {themeAutoFilled && (
+              <p className="text-xs text-muted-foreground">Filled in from the planned theme.</p>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="add-url">Spotify link</Label>

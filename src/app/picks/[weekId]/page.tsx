@@ -60,6 +60,7 @@ export default function PicksPage({
   const [weekName, setWeekName] = useState('')
   const [weekType, setWeekType] = useState('')
   const [weekStatus, setWeekStatus] = useState('')
+  const [weekTheme, setWeekTheme] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [games, setGames] = useState<Game[]>([])
   const [picks, setPicks] = useState<Record<string, Pick>>({})
@@ -148,7 +149,7 @@ export default function PicksPage({
 
     const { data: week } = await supabase
       .from('weeks')
-      .select('id, name, week_type, season_id, status')
+      .select('id, name, week_type, season_id, status, week_number')
       .eq('id', weekId)
       .maybeSingle()
 
@@ -161,6 +162,17 @@ export default function PicksPage({
     setWeekType(week.week_type)
     setWeekStatus(week.status)
     setSeasonId(week.season_id)
+
+    // RLS on season_themes already gates this to weeks that are no longer
+    // 'upcoming' -- a row simply won't come back if picks haven't opened
+    // yet, so no extra client-side date/status check is needed here.
+    const { data: themeRow } = await supabase
+      .from('season_themes')
+      .select('theme')
+      .eq('season_id', week.season_id)
+      .eq('week_number', week.week_number)
+      .maybeSingle()
+    setWeekTheme(themeRow?.theme ?? null)
 
     const { data: season } = await supabase
       .from('seasons')
@@ -564,6 +576,7 @@ export default function PicksPage({
             <p className="text-muted-foreground">
               {weekName}
               {isConferenceTitle && ' — Conference Title Week'}
+              {weekTheme && <span> — 🎵 {weekTheme}</span>}
             </p>
           </div>
           {seasonId && (

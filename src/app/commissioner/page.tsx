@@ -28,6 +28,11 @@ const TOOLS = [
     description: 'See what participants have reported and mark issues resolved.',
   },
   {
+    href: '/commissioner/themes',
+    title: 'Season Themes',
+    description: 'Plan a theme per week ahead of time — revealed to participants once picks open.',
+  },
+  {
     href: '/commissioner/playlists',
     title: 'Playlists',
     description: "See this week's song submissions for curation, and manage the playlist archive.",

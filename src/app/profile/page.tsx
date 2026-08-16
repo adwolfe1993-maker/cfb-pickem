@@ -64,13 +64,16 @@ export default function ProfilePage() {
       })),
     ]
 
-    const { data: activeSeasons } = await supabase
+    // Active, else the most recently created upcoming season — so team
+    // names can be set up ahead of the season officially going active,
+    // not just once it's already underway.
+    const { data: seasons } = await supabase
       .from('seasons')
-      .select('id, name')
-      .eq('status', 'active')
-      .limit(1)
+      .select('id, name, status')
+      .in('status', ['active', 'upcoming'])
+      .order('created_at', { ascending: false })
 
-    const season = activeSeasons?.[0]
+    const season = seasons?.find((s) => s.status === 'active') ?? seasons?.[0] ?? null
     setSeasonId(season?.id ?? null)
     setSeasonName(season?.name ?? '')
 

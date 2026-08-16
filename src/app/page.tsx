@@ -29,14 +29,15 @@ export default async function HomePage() {
 
   const isFirstVisit = !profile?.welcomed_at
 
-  // Fire the one-time "seen it" flag now, using the profile data already
-  // fetched above (from before this update) to decide what to render —
-  // mark_welcomed is a narrow RPC that only ever touches the caller's own
-  // welcomed_at, not a general update-your-own-row policy that could let
-  // someone edit their own role.
   if (isFirstVisit) {
-    await supabase.rpc('mark_welcomed')
+    // Claiming a pending managed-profile link (e.g. a spouse's account the
+    // commissioner pre-created) is safe to run every time before welcomed_at
+    // is set — it's a no-op once already claimed. mark_welcomed itself now
+    // happens at the END of the /welcome flow instead of here, so someone
+    // who bails out mid-setup still sees the guide next time instead of
+    // landing on a bare "Welcome!" card with nothing to do.
     await supabase.rpc('claim_pending_managed_profile')
+    redirect('/welcome')
   }
 
   return (
@@ -45,9 +46,7 @@ export default async function HomePage() {
 
       <Card className="relative z-10 w-full max-w-sm shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl">
-            {isFirstVisit ? `Welcome, ${profile?.display_name}!` : 'The Buck Stops Here'}
-          </CardTitle>
+          <CardTitle className="text-2xl">The Buck Stops Here</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
           <EnableNotifications />

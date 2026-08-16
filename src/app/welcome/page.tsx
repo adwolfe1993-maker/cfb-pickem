@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import { getCurrentSeason, needsWelcome } from '@/utils/currentSeason'
 import WelcomeFlow from './WelcomeFlow'
 
 export default async function WelcomePage() {
@@ -19,25 +20,16 @@ export default async function WelcomePage() {
     .eq('id', user.id)
     .single()
 
-  // Not a gate against "already did this once" in the strict sense —
-  // revisiting /welcome after finishing is harmless — but bookmarking or
-  // hitting back shouldn't re-run the guide unprompted. /profile is the
-  // anytime-editable version of the same fields.
-  if (profile?.welcomed_at) {
+  const season = await getCurrentSeason(supabase)
+
+  // Season-scoped, same check the homepage uses to route people here in
+  // the first place — not a plain welcomed_at check, since a returning
+  // participant who's already welcomed_at=true for a prior season still
+  // needs this page for a new season they haven't set up yet.
+  const stillNeedsIt = await needsWelcome(supabase, user.id, season, profile?.welcomed_at ?? null)
+  if (!stillNeedsIt) {
     redirect('/')
   }
-
-  // Current-season resolution, same "active, else most recent upcoming"
-  // logic as /profile — this intentionally does NOT restrict to active
-  // only, so people can set up their team name ahead of the season
-  // actually starting.
-  const { data: seasons } = await supabase
-    .from('seasons')
-    .select('id, name, status')
-    .in('status', ['active', 'upcoming'])
-    .order('created_at', { ascending: false })
-
-  const season = seasons?.find((s) => s.status === 'active') ?? seasons?.[0] ?? null
 
   let existingTeamName = ''
   if (season) {
@@ -57,6 +49,7 @@ export default async function WelcomePage() {
       seasonId={season?.id ?? null}
       seasonName={season?.name ?? ''}
       initialTeamName={existingTeamName}
+      isReturning={!!profile?.welcomed_at}
     />
   )
 }

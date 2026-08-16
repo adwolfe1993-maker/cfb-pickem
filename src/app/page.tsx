@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import FootballField from '@/components/FootballField'
 import EnableNotifications from '@/components/EnableNotifications'
+import { getCurrentSeason, needsWelcome } from '@/utils/currentSeason'
 import {
   Card,
   CardContent,
@@ -27,12 +28,14 @@ export default async function HomePage() {
     .eq('id', user.id)
     .single()
 
-  const isFirstVisit = !profile?.welcomed_at
+  const season = await getCurrentSeason(supabase)
+  const showWelcome = await needsWelcome(supabase, user.id, season, profile?.welcomed_at ?? null)
 
-  if (isFirstVisit) {
+  if (showWelcome) {
     // Claiming a pending managed-profile link (e.g. a spouse's account the
     // commissioner pre-created) is safe to run every time before welcomed_at
     // is set — it's a no-op once already claimed. mark_welcomed itself now
+
     // happens at the END of the /welcome flow instead of here, so someone
     // who bails out mid-setup still sees the guide next time instead of
     // landing on a bare "Welcome!" card with nothing to do.

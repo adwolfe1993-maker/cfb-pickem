@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
+import { getCurrentSeason } from '@/utils/currentSeason'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -67,13 +68,7 @@ export default function ProfilePage() {
     // Active, else the most recently created upcoming season — so team
     // names can be set up ahead of the season officially going active,
     // not just once it's already underway.
-    const { data: seasons } = await supabase
-      .from('seasons')
-      .select('id, name, status')
-      .in('status', ['active', 'upcoming'])
-      .order('created_at', { ascending: false })
-
-    const season = seasons?.find((s) => s.status === 'active') ?? seasons?.[0] ?? null
+    const season = await getCurrentSeason(supabase)
     setSeasonId(season?.id ?? null)
     setSeasonName(season?.name ?? '')
 

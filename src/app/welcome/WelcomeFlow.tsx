@@ -19,6 +19,7 @@ type Props = {
   seasonId: string | null
   seasonName: string
   initialTeamName: string
+  isReturning: boolean
 }
 
 export default function WelcomeFlow({
@@ -26,6 +27,7 @@ export default function WelcomeFlow({
   seasonId,
   seasonName,
   initialTeamName,
+  isReturning,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -105,14 +107,17 @@ export default function WelcomeFlow({
 
       <Card className="relative z-10 w-full max-w-md shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl">Welcome to The Buck Stops Here!</CardTitle>
+          <CardTitle className="text-2xl">
+            {isReturning ? `New season, quick setup${seasonName ? ` — ${seasonName}` : ''}` : 'Welcome to The Buck Stops Here!'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 text-sm">
           <p className="text-muted-foreground">
-            Two quick things before you start picking. Both of these show up everywhere —
-            standings, the pick grid, weekly emails — so it&apos;s worth a minute now. You can
-            always change them later from <span className="font-medium text-foreground">Profile</span>{' '}
-            in the menu.
+            {isReturning
+              ? "Just need a team name for the new season — your display name carries over, but feel free to update it too. Both show up everywhere: standings, the pick grid, weekly emails."
+              : "Two quick things before you start picking. Both of these show up everywhere — standings, the pick grid, weekly emails — so it's worth a minute now."}{' '}
+            You can always change them later from{' '}
+            <span className="font-medium text-foreground">Profile</span> in the menu.
           </p>
 
           <div className="flex flex-col gap-2">

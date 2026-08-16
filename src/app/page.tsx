@@ -129,8 +129,8 @@ export default async function HomePage() {
   const MEDALS: Record<number, string> = { 1: '🏆 ', 2: '🥈 ', 3: '🥉 ' }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="relative flex items-center justify-center p-4">
+    <div className="flex flex-col">
+      <div className="relative flex min-h-[420px] items-center justify-center p-4">
         <FootballField />
 
         <Card className="relative z-10 w-full max-w-sm shadow-xl">

@@ -27,6 +27,7 @@ export default async function SiteNav() {
     ...(profile?.role === 'commissioner'
       ? [{ href: '/commissioner', label: 'Commissioner Tools' }]
       : []),
+    { href: '/feedback', label: 'Report a Bug' },
   ]
 
   return (

@@ -73,7 +73,7 @@ export default function CommissionerPlaylistsPage() {
     const year = parseInt(addYear, 10)
     const week = parseInt(addWeek, 10)
 
-    if (!year || !week) {
+    if (!year || Number.isNaN(week)) {
       if (themeAutoFilled) {
         setAddTheme('')
         setAddEmoji('')
@@ -225,7 +225,7 @@ export default function CommissionerPlaylistsPage() {
     const year = parseInt(addYear, 10)
     const week = parseInt(addWeek, 10)
 
-    if (!year || !week || !addUrl.trim()) {
+    if (!year || Number.isNaN(week) || !addUrl.trim()) {
       setPlaylistsError('Season year, week #, and a Spotify link are required.')
       return
     }
@@ -282,7 +282,7 @@ export default function CommissionerPlaylistsPage() {
       const year = parseInt(yearRaw ?? '', 10)
       const week = parseInt(weekRaw ?? '', 10)
 
-      if (!year || !week || !url) {
+      if (!year || Number.isNaN(week) || !url) {
         skipped.push(line)
         continue
       }

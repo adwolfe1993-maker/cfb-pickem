@@ -90,7 +90,7 @@ export default function SeasonThemesPage() {
     setError('')
     const weekNum = parseInt(addWeek, 10)
 
-    if (!weekNum || !addTheme.trim()) {
+    if (Number.isNaN(weekNum) || !addTheme.trim()) {
       setError('Week # and a theme are required.')
       return
     }
@@ -156,7 +156,7 @@ export default function SeasonThemesPage() {
         theme = parts.slice(1).join(',').trim()
       }
 
-      if (!weekNum || !theme) {
+      if (Number.isNaN(weekNum) || !theme) {
         skipped.push(line)
         continue
       }

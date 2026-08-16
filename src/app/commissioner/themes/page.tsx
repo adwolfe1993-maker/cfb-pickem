@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { suggestThemeEmoji } from '@/utils/themeEmoji'
 
 type Season = {
   id: string
@@ -23,6 +24,7 @@ type Theme = {
   id: string
   week_number: number
   theme: string
+  emoji: string | null
 }
 
 export default function SeasonThemesPage() {
@@ -38,6 +40,8 @@ export default function SeasonThemesPage() {
 
   const [addWeek, setAddWeek] = useState('')
   const [addTheme, setAddTheme] = useState('')
+  const [addEmoji, setAddEmoji] = useState('')
+  const [emojiAutoFilled, setEmojiAutoFilled] = useState(true)
   const [adding, setAdding] = useState(false)
 
   const [bulkText, setBulkText] = useState('')
@@ -68,7 +72,7 @@ export default function SeasonThemesPage() {
 
     const { data, error } = await supabase
       .from('season_themes')
-      .select('id, week_number, theme')
+      .select('id, week_number, theme, emoji')
       .eq('season_id', seasonId)
       .order('week_number', { ascending: true })
 
@@ -93,7 +97,12 @@ export default function SeasonThemesPage() {
 
     setAdding(true)
     const { error } = await supabase.from('season_themes').upsert(
-      { season_id: seasonId, week_number: weekNum, theme: addTheme.trim() },
+      {
+        season_id: seasonId,
+        week_number: weekNum,
+        theme: addTheme.trim(),
+        emoji: addEmoji.trim() || suggestThemeEmoji(addTheme.trim()),
+      },
       { onConflict: 'season_id,week_number' }
     )
     setAdding(false)
@@ -105,6 +114,8 @@ export default function SeasonThemesPage() {
 
     setAddWeek('')
     setAddTheme('')
+    setAddEmoji('')
+    setEmojiAutoFilled(true)
     loadThemes()
   }
 
@@ -124,21 +135,38 @@ export default function SeasonThemesPage() {
       .map((l) => l.trim())
       .filter(Boolean)
 
-    const rows: { season_id: string; week_number: number; theme: string }[] = []
+    const rows: { season_id: string; week_number: number; theme: string; emoji: string }[] = []
     const skipped: string[] = []
 
     for (const line of lines) {
-      const parts = (line.includes('\t') ? line.split('\t') : line.split(',')).map((p) => p.trim())
-      const [weekRaw, ...themeParts] = parts
-      const weekNum = parseInt(weekRaw ?? '', 10)
-      const theme = themeParts.join(',').trim()
+      const isTab = line.includes('\t')
+      const parts = (isTab ? line.split('\t') : line.split(',')).map((p) => p.trim())
+      const weekNum = parseInt(parts[0] ?? '', 10)
+
+      // Tab-separated (Excel paste) has a clean 3rd column for an explicit
+      // emoji override. Comma-separated rejoins everything after the week
+      // # as the theme instead -- a theme can itself contain a comma, and
+      // splitting positionally on commas would wrongly chop it up.
+      let theme: string
+      let explicitEmoji: string | undefined
+      if (isTab) {
+        theme = parts[1] ?? ''
+        explicitEmoji = parts[2]
+      } else {
+        theme = parts.slice(1).join(',').trim()
+      }
 
       if (!weekNum || !theme) {
         skipped.push(line)
         continue
       }
 
-      rows.push({ season_id: seasonId, week_number: weekNum, theme })
+      rows.push({
+        season_id: seasonId,
+        week_number: weekNum,
+        theme,
+        emoji: explicitEmoji || suggestThemeEmoji(theme),
+      })
     }
 
     if (rows.length === 0) {
@@ -205,7 +233,7 @@ export default function SeasonThemesPage() {
           <CardTitle className="text-base font-medium">Add a theme</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="theme-week">Week #</Label>
               <Input
@@ -221,8 +249,28 @@ export default function SeasonThemesPage() {
               <Input
                 id="theme-text"
                 value={addTheme}
-                onChange={(e) => setAddTheme(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setAddTheme(value)
+                  // Keep re-suggesting as they type, until they touch the
+                  // emoji field themselves -- at that point their choice
+                  // wins and typing more theme text won't overwrite it.
+                  if (emojiAutoFilled) setAddEmoji(value.trim() ? suggestThemeEmoji(value) : '')
+                }}
                 placeholder="e.g. Kickoff Weekend"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="theme-emoji">Emoji</Label>
+              <Input
+                id="theme-emoji"
+                value={addEmoji}
+                onChange={(e) => {
+                  setAddEmoji(e.target.value)
+                  setEmojiAutoFilled(false)
+                }}
+                placeholder="🎵"
+                className="text-center text-lg"
               />
             </div>
           </div>
@@ -238,14 +286,16 @@ export default function SeasonThemesPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-xs text-muted-foreground">
-            One theme per line: week #, theme — tab or comma separated. Re-pasting a week that
-            already has a theme updates it rather than duplicating.
+            One theme per line: week #, theme, and an optional emoji override — tab or comma
+            separated (the emoji column only works with tabs, since a comma-separated theme could
+            contain a comma itself). Left off, an emoji is auto-suggested from the theme text.
+            Re-pasting a week that already has a theme updates it rather than duplicating.
           </p>
           <textarea
             value={bulkText}
             onChange={(e) => setBulkText(e.target.value)}
             rows={6}
-            placeholder={'1\tKickoff Weekend\n2\tRivalry Week'}
+            placeholder={'1\tKickoff Weekend\n2\tRivalry Week\t⚔️'}
             className="rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
           />
           <Button onClick={handleBulkAdd} disabled={bulkSaving || !bulkText.trim()} className="self-start">
@@ -269,7 +319,9 @@ export default function SeasonThemesPage() {
               {themes.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-2 py-2">
                   <span>
-                    <span className="font-medium">Week {t.week_number}</span> — {t.theme}
+                    <span className="font-medium">Week {t.week_number}</span> —{' '}
+                    {t.emoji ? `${t.emoji} ` : ''}
+                    {t.theme}
                   </span>
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(t.id)}>
                     Delete

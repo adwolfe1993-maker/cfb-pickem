@@ -61,6 +61,7 @@ export default function PicksPage({
   const [weekType, setWeekType] = useState('')
   const [weekStatus, setWeekStatus] = useState('')
   const [weekTheme, setWeekTheme] = useState<string | null>(null)
+  const [weekThemeEmoji, setWeekThemeEmoji] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [games, setGames] = useState<Game[]>([])
   const [picks, setPicks] = useState<Record<string, Pick>>({})
@@ -168,11 +169,12 @@ export default function PicksPage({
     // yet, so no extra client-side date/status check is needed here.
     const { data: themeRow } = await supabase
       .from('season_themes')
-      .select('theme')
+      .select('theme, emoji')
       .eq('season_id', week.season_id)
       .eq('week_number', week.week_number)
       .maybeSingle()
     setWeekTheme(themeRow?.theme ?? null)
+    setWeekThemeEmoji(themeRow?.emoji ?? null)
 
     const { data: season } = await supabase
       .from('seasons')
@@ -576,7 +578,7 @@ export default function PicksPage({
             <p className="text-muted-foreground">
               {weekName}
               {isConferenceTitle && ' — Conference Title Week'}
-              {weekTheme && <span> — 🎵 {weekTheme}</span>}
+              {weekTheme && <span> — {weekThemeEmoji ?? '🎵'} {weekTheme}</span>}
             </p>
           </div>
           {seasonId && (

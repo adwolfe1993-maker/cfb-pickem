@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { suggestThemeEmoji } from '@/utils/themeEmoji'
 
 type WeekOption = {
   id: string
@@ -34,6 +35,7 @@ type Playlist = {
   season_year: number
   week_number: number
   theme: string | null
+  emoji: string | null
   spotify_url: string
 }
 
@@ -54,15 +56,19 @@ export default function CommissionerPlaylistsPage() {
   const [addYear, setAddYear] = useState('')
   const [addWeek, setAddWeek] = useState('')
   const [addTheme, setAddTheme] = useState('')
+  const [addEmoji, setAddEmoji] = useState('')
   const [addUrl, setAddUrl] = useState('')
   const [adding, setAdding] = useState(false)
   const [themeAutoFilled, setThemeAutoFilled] = useState(false)
 
-  // Auto-fill the theme from a planned season_themes entry when year+week
-  // match one — season_themes is keyed by season_id, so this first has to
-  // resolve the season by name (seasons are named plainly by year, e.g.
-  // "2026"). Never overwrites something the commissioner already typed by
-  // hand, and clears itself if they change year/week away from the match.
+  // Auto-fill theme + emoji from a planned season_themes entry when
+  // year+week match one — season_themes is keyed by season_id, so this
+  // first has to resolve the season by name (seasons are named plainly by
+  // year, e.g. "2026"). Never overwrites something the commissioner
+  // already typed by hand, and clears itself if they change year/week
+  // away from the match. If there's no planned theme (true for all
+  // historical years before this app existed), falls back to guessing an
+  // emoji from whatever theme text they type in manually.
   useEffect(() => {
     const year = parseInt(addYear, 10)
     const week = parseInt(addWeek, 10)
@@ -70,6 +76,7 @@ export default function CommissionerPlaylistsPage() {
     if (!year || !week) {
       if (themeAutoFilled) {
         setAddTheme('')
+        setAddEmoji('')
         setThemeAutoFilled(false)
       }
       return
@@ -88,7 +95,7 @@ export default function CommissionerPlaylistsPage() {
 
       const { data: themeRow } = await supabase
         .from('season_themes')
-        .select('theme')
+        .select('theme, emoji')
         .eq('season_id', season.id)
         .eq('week_number', week)
         .maybeSingle()
@@ -97,9 +104,11 @@ export default function CommissionerPlaylistsPage() {
 
       if (themeRow?.theme && (addTheme === '' || themeAutoFilled)) {
         setAddTheme(themeRow.theme)
+        setAddEmoji(themeRow.emoji ?? suggestThemeEmoji(themeRow.theme))
         setThemeAutoFilled(true)
       } else if (!themeRow?.theme && themeAutoFilled) {
         setAddTheme('')
+        setAddEmoji('')
         setThemeAutoFilled(false)
       }
     }
@@ -138,7 +147,7 @@ export default function CommissionerPlaylistsPage() {
     setPlaylistsError('')
     const { data, error } = await supabase
       .from('playlists')
-      .select('id, season_year, week_number, theme, spotify_url')
+      .select('id, season_year, week_number, theme, emoji, spotify_url')
       .order('season_year', { ascending: false })
       .order('week_number', { ascending: false })
 
@@ -227,6 +236,7 @@ export default function CommissionerPlaylistsPage() {
         season_year: year,
         week_number: week,
         theme: addTheme.trim() || null,
+        emoji: addEmoji.trim() || (addTheme.trim() ? suggestThemeEmoji(addTheme.trim()) : null),
         spotify_url: addUrl.trim(),
       },
       { onConflict: 'season_year,week_number' }
@@ -241,6 +251,7 @@ export default function CommissionerPlaylistsPage() {
     setAddYear('')
     setAddWeek('')
     setAddTheme('')
+    setAddEmoji('')
     setAddUrl('')
     setThemeAutoFilled(false)
     loadPlaylists()
@@ -262,12 +273,12 @@ export default function CommissionerPlaylistsPage() {
       .map((l) => l.trim())
       .filter(Boolean)
 
-    const rows: { season_year: number; week_number: number; theme: string | null; spotify_url: string }[] = []
+    const rows: { season_year: number; week_number: number; theme: string | null; emoji: string | null; spotify_url: string }[] = []
     const skipped: string[] = []
 
     for (const line of lines) {
       const parts = (line.includes('\t') ? line.split('\t') : line.split(',')).map((p) => p.trim())
-      const [yearRaw, weekRaw, theme, url] = parts
+      const [yearRaw, weekRaw, theme, url, explicitEmoji] = parts
       const year = parseInt(yearRaw ?? '', 10)
       const week = parseInt(weekRaw ?? '', 10)
 
@@ -276,7 +287,13 @@ export default function CommissionerPlaylistsPage() {
         continue
       }
 
-      rows.push({ season_year: year, week_number: week, theme: theme || null, spotify_url: url })
+      rows.push({
+        season_year: year,
+        week_number: week,
+        theme: theme || null,
+        emoji: explicitEmoji || (theme ? suggestThemeEmoji(theme) : null),
+        spotify_url: url,
+      })
     }
 
     if (rows.length === 0) {
@@ -384,20 +401,34 @@ export default function CommissionerPlaylistsPage() {
               />
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="add-theme">Theme (optional)</Label>
-            <Input
-              id="add-theme"
-              value={addTheme}
-              onChange={(e) => {
-                setAddTheme(e.target.value)
-                setThemeAutoFilled(false)
-              }}
-              placeholder="e.g. Kickoff Weekend"
-            />
-            {themeAutoFilled && (
-              <p className="text-xs text-muted-foreground">Filled in from the planned theme.</p>
-            )}
+          <div className="flex gap-3">
+            <div className="flex-1 flex flex-col gap-1">
+              <Label htmlFor="add-theme">Theme (optional)</Label>
+              <Input
+                id="add-theme"
+                value={addTheme}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setAddTheme(value)
+                  setAddEmoji(value.trim() ? suggestThemeEmoji(value) : '')
+                  setThemeAutoFilled(false)
+                }}
+                placeholder="e.g. Kickoff Weekend"
+              />
+              {themeAutoFilled && (
+                <p className="text-xs text-muted-foreground">Filled in from the planned theme.</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="add-emoji">Emoji</Label>
+              <Input
+                id="add-emoji"
+                value={addEmoji}
+                onChange={(e) => setAddEmoji(e.target.value)}
+                placeholder="🎵"
+                className="w-16 text-center text-lg"
+              />
+            </div>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="add-url">Spotify link</Label>
@@ -420,8 +451,9 @@ export default function CommissionerPlaylistsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <p className="text-xs text-muted-foreground">
-            One playlist per line: year, week #, theme, link — either paste tab-separated rows
-            straight from Excel, or comma-separated. Theme can be left blank. Re-pasting a
+            One playlist per line: year, week #, theme, link, and an optional emoji override —
+            either paste tab-separated rows straight from Excel, or comma-separated. Theme and
+            emoji can be left blank (an emoji gets auto-suggested from the theme). Re-pasting a
             year/week that already exists updates it rather than duplicating.
           </p>
           <textarea
@@ -455,7 +487,7 @@ export default function CommissionerPlaylistsPage() {
                   <div className="flex flex-col">
                     <span className="font-medium">
                       {p.season_year} — Week {p.week_number}
-                      {p.theme ? `: ${p.theme}` : ''}
+                      {p.theme ? `: ${p.emoji ? `${p.emoji} ` : ''}${p.theme}` : ''}
                     </span>
                     <a
                       href={p.spotify_url}

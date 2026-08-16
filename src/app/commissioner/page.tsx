@@ -27,6 +27,11 @@ const TOOLS = [
     title: 'Feedback',
     description: 'See what participants have reported and mark issues resolved.',
   },
+  {
+    href: '/commissioner/playlists',
+    title: 'Playlists',
+    description: "See this week's song submissions for curation, and manage the playlist archive.",
+  },
 ]
 
 export default function CommissionerHubPage() {

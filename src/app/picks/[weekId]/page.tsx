@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import WeekSelector from '@/components/WeekSelector'
+import SongSubmission from '@/components/SongSubmission'
 import {
   Card,
   CardContent,
@@ -58,6 +59,7 @@ export default function PicksPage({
   const [seasonName, setSeasonName] = useState('')
   const [weekName, setWeekName] = useState('')
   const [weekType, setWeekType] = useState('')
+  const [weekStatus, setWeekStatus] = useState('')
   const [notFound, setNotFound] = useState(false)
   const [games, setGames] = useState<Game[]>([])
   const [picks, setPicks] = useState<Record<string, Pick>>({})
@@ -146,7 +148,7 @@ export default function PicksPage({
 
     const { data: week } = await supabase
       .from('weeks')
-      .select('id, name, week_type, season_id')
+      .select('id, name, week_type, season_id, status')
       .eq('id', weekId)
       .maybeSingle()
 
@@ -157,6 +159,7 @@ export default function PicksPage({
     }
     setWeekName(week.name)
     setWeekType(week.week_type)
+    setWeekStatus(week.status)
     setSeasonId(week.season_id)
 
     const { data: season } = await supabase
@@ -589,6 +592,10 @@ export default function PicksPage({
           </div>
         )}
       </div>
+
+      {activeProfileId && (
+        <SongSubmission weekId={weekId} userId={activeProfileId} weekStatus={weekStatus} />
+      )}
 
       {games.length === 0 ? (
         <p className="text-sm text-muted-foreground">

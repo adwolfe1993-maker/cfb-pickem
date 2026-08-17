@@ -13,6 +13,7 @@ type StandingRow = {
   team_name: string | null
   net_score: number
   rank: number
+  conf_title_score: number | null
   historical_players: { canonical_name: string; user_id: string | null } | null
 }
 
@@ -34,7 +35,9 @@ export default async function HistoryIndexPage() {
 
   const { data: standingsData } = await supabase
     .from('historical_standings')
-    .select('year, team_name, net_score, rank, historical_players(canonical_name, user_id)')
+    .select(
+      'year, team_name, net_score, rank, conf_title_score, historical_players(canonical_name, user_id)'
+    )
     .order('year', { ascending: false })
     .order('rank', { ascending: true })
 
@@ -69,7 +72,40 @@ export default async function HistoryIndexPage() {
       <div className="flex flex-col gap-3">
         {(seasons ?? []).map((season) => {
           const rows = byYear.get(season.year) ?? []
-          const champion = rows.find((r) => r.rank === 1)
+          const overallChamp = rows.find((r) => r.rank === 1)
+
+          // Regular season champion: highest (net_score - conf_title_score).
+          // When conf_title_score is null (2020, and 2021 where Conference
+          // Titles was tracked but every score was 0), this is identical to
+          // the overall champion.
+          let regSeasonChamp: StandingRow | undefined
+          let regSeasonNet = -Infinity
+          for (const r of rows) {
+            const net = r.net_score - (r.conf_title_score ?? 0)
+            if (net > regSeasonNet) {
+              regSeasonNet = net
+              regSeasonChamp = r
+            }
+          }
+
+          const samePerson =
+            overallChamp?.historical_players?.canonical_name ===
+            regSeasonChamp?.historical_players?.canonical_name
+
+          const renderChamp = (c: StandingRow | undefined) =>
+            c ? (
+              c.team_name ? (
+                <>
+                  {c.team_name}{' '}
+                  <span className="text-muted-foreground">
+                    ({c.historical_players?.canonical_name})
+                  </span>
+                </>
+              ) : (
+                c.historical_players?.canonical_name
+              )
+            ) : null
+
           return (
             <Card key={season.year} className="relative transition-colors hover:bg-accent">
               <Link
@@ -80,25 +116,20 @@ export default async function HistoryIndexPage() {
               <CardHeader>
                 <CardTitle className="text-base font-medium">{season.year} Season</CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center justify-between text-sm">
+              <CardContent className="flex flex-col gap-1 text-sm">
                 <span className="text-muted-foreground">
                   {rows.length} participant{rows.length === 1 ? '' : 's'}
                   {season.had_conference_title ? ' · Conf. Title Week' : ''}
                 </span>
-                {champion && (
-                  <span className="font-medium">
-                    🏆{' '}
-                    {champion.team_name ? (
-                      <>
-                        {champion.team_name}{' '}
-                        <span className="text-muted-foreground">
-                          ({champion.historical_players?.canonical_name})
-                        </span>
-                      </>
-                    ) : (
-                      champion.historical_players?.canonical_name
-                    )}
-                  </span>
+                {samePerson ? (
+                  <span className="font-medium">🏆 {renderChamp(overallChamp)}</span>
+                ) : (
+                  <>
+                    <span className="font-medium">🏆 Overall: {renderChamp(overallChamp)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      🎖️ Regular Season: {renderChamp(regSeasonChamp)}
+                    </span>
+                  </>
                 )}
               </CardContent>
             </Card>

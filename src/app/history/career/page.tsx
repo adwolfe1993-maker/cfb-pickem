@@ -85,8 +85,9 @@ export default async function CareerStatsPage() {
   }
 
   const rows = [...statsById.values()].sort((a, b) => {
-    if (b.championships !== a.championships) return b.championships - a.championships
-    return b.careerNet - a.careerNet
+    const avgA = a.careerNet / a.seasons
+    const avgB = b.careerNet / b.seasons
+    return avgB - avgA
   })
 
   return (
@@ -97,8 +98,9 @@ export default async function CareerStatsPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">All-Time Career Stats</h1>
         <p className="text-sm text-muted-foreground">
-          Aggregated across every season since 2020. Ranked by championships, then career
-          net score.
+          Aggregated across every season since 2020. Ranked by average net score per
+          season — rewards consistently strong performances, not just championships or
+          longevity.
         </p>
       </div>
 
@@ -107,6 +109,7 @@ export default async function CareerStatsPage() {
           {rows.map((r, i) => {
             const isYou = r.userId === user.id
             const dnRate = r.dnTotal > 0 ? Math.round((r.dnCorrect / r.dnTotal) * 100) : null
+            const avgNet = r.careerNet / r.seasons
             return (
               <div key={r.playerId} className="flex flex-col gap-1.5 py-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -115,7 +118,10 @@ export default async function CareerStatsPage() {
                     {r.name}
                     {isYou && <span className="text-muted-foreground"> (you)</span>}
                   </span>
-                  <span className="font-semibold">{r.careerNet} career pts</span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="font-semibold">{avgNet.toFixed(1)} avg/season</span>
+                    <span className="text-xs text-muted-foreground">{r.careerNet} total</span>
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>

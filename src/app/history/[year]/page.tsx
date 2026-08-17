@@ -14,6 +14,7 @@ type StandingRow = {
   net_score: number
   rank: number
   tiebreaker_avg: number | null
+  conf_title_score: number | null
   historical_players: { id: string; canonical_name: string; user_id: string | null } | null
 }
 
@@ -59,7 +60,7 @@ export default async function HistorySeasonPage({
   const { data: standingsData } = await supabase
     .from('historical_standings')
     .select(
-      'team_name, gross_total, net_score, rank, tiebreaker_avg, historical_players(id, canonical_name, user_id)'
+      'team_name, gross_total, net_score, rank, tiebreaker_avg, conf_title_score, historical_players(id, canonical_name, user_id)'
     )
     .eq('year', year)
     .order('rank', { ascending: true })
@@ -73,6 +74,38 @@ export default async function HistorySeasonPage({
     .order('week_number', { ascending: true })
 
   const wtw = (wtwData ?? []) as unknown as WtwRow[]
+
+  const overallChamp = standings.find((s) => s.rank === 1)
+
+  // Regular season net = final net score minus whatever Conference Title
+  // Week contributed. Null conf_title_score (2020, and 2021 where the
+  // Conference Titles sheet was tracked but every score was 0) means the
+  // regular season and overall champion are the same person.
+  let regSeasonChamp: StandingRow | undefined
+  let bestRegNet = -Infinity
+  for (const s of standings) {
+    const regNet = s.net_score - (s.conf_title_score ?? 0)
+    if (regNet > bestRegNet) {
+      bestRegNet = regNet
+      regSeasonChamp = s
+    }
+  }
+
+  const samePerson =
+    overallChamp?.historical_players?.canonical_name ===
+    regSeasonChamp?.historical_players?.canonical_name
+
+  const renderName = (s: StandingRow | undefined) =>
+    s ? (
+      s.team_name ? (
+        <>
+          {s.team_name}{' '}
+          <span className="text-muted-foreground">({s.historical_players?.canonical_name})</span>
+        </>
+      ) : (
+        s.historical_players?.canonical_name
+      )
+    ) : null
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 py-12">
@@ -88,12 +121,31 @@ export default async function HistorySeasonPage({
       </div>
 
       <Card>
+        <CardContent className="flex flex-col gap-2 pt-6 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">🏆 Overall / Conference Champion</span>
+            <span className="font-semibold">{renderName(overallChamp)}</span>
+          </div>
+          {!samePerson && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">🎖️ Regular Season Champion</span>
+              <span className="font-semibold">{renderName(regSeasonChamp)}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader>
           <CardTitle className="text-base font-medium">Standings</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-0 divide-y divide-border">
           {standings.map((s, i) => {
             const isYou = s.historical_players?.user_id === user.id
+            const isRegChamp =
+              !samePerson && s.historical_players?.id === regSeasonChamp?.historical_players?.id
+            const regNet =
+              s.conf_title_score !== null ? s.net_score - s.conf_title_score : null
             return (
               <div
                 key={s.historical_players?.id ?? i}
@@ -113,6 +165,12 @@ export default async function HistorySeasonPage({
                     <span className="font-medium">{s.historical_players?.canonical_name}</span>
                   )}
                   {isYou && <span className="text-muted-foreground"> (you)</span>}
+                  {isRegChamp && <span className="ml-1" title="Regular Season Champion">🎖️</span>}
+                  {regNet !== null && (
+                    <div className="text-xs text-muted-foreground">
+                      Reg. season: {regNet} + Conf. Title: {s.conf_title_score}
+                    </div>
+                  )}
                 </span>
                 <span className="flex items-baseline gap-2">
                   <span className="font-semibold">{s.net_score}</span>

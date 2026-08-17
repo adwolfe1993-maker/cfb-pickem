@@ -23,6 +23,7 @@ export default async function SiteNav() {
     { href: '/profile', label: 'Profile' },
     { href: '/picks', label: 'My Picks' },
     { href: '/stats', label: 'Stats' },
+    { href: '/history', label: 'League History' },
     { href: '/playlists', label: 'Playlists' },
     ...(profile?.role === 'commissioner'
       ? [{ href: '/commissioner', label: 'Commissioner Tools' }]

@@ -27,6 +27,11 @@ const STATS_PAGES = [
     title: 'Similarities',
     description: 'How often you and everyone else pick the same winners.',
   },
+  {
+    href: '/history',
+    title: 'League History',
+    description: 'Final standings and Bonus Team picks from every season since 2020.',
+  },
 ]
 
 export default function StatsHubPage() {

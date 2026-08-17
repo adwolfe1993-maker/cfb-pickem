@@ -15,12 +15,19 @@ type StandingRow = {
   rank: number
   tiebreaker_avg: number | null
   conf_title_score: number | null
+  historical_player_id: string
   historical_players: { id: string; canonical_name: string; user_id: string | null } | null
 }
 
 type WtwRow = {
   week_number: number
   historical_players: { canonical_name: string; user_id: string | null } | null
+}
+
+type WeeklyScoreRow = {
+  historical_player_id: string
+  week_number: number
+  score: number
 }
 
 const MEDALS: Record<number, string> = { 1: '🏆 ', 2: '🥈 ', 3: '🥉 ' }
@@ -60,7 +67,7 @@ export default async function HistorySeasonPage({
   const { data: standingsData } = await supabase
     .from('historical_standings')
     .select(
-      'team_name, gross_total, net_score, rank, tiebreaker_avg, conf_title_score, historical_players(id, canonical_name, user_id)'
+      'team_name, gross_total, net_score, rank, tiebreaker_avg, conf_title_score, historical_player_id, historical_players(id, canonical_name, user_id)'
     )
     .eq('year', year)
     .order('rank', { ascending: true })
@@ -75,17 +82,38 @@ export default async function HistorySeasonPage({
 
   const wtw = (wtwData ?? []) as unknown as WtwRow[]
 
+  const { data: weeklyData } = await supabase
+    .from('historical_weekly_scores')
+    .select('historical_player_id, week_number, score')
+    .eq('year', year)
+
+  const weeklyScores = (weeklyData ?? []) as WeeklyScoreRow[]
+
+  // Regular season net = sum of every regular-season weekly score minus
+  // the single lowest week (charter Sec 4.7), computed directly from real
+  // per-week data. The stored Net Score column isn't used here -- confirmed
+  // the original spreadsheet's own drop-week formula doesn't always drop
+  // the true minimum week (e.g. Ally, 2020: it dropped a 10-point week
+  // instead of her actual 9-point low week).
+  const weeksByPlayer = new Map<string, number[]>()
+  for (const w of weeklyScores) {
+    if (!weeksByPlayer.has(w.historical_player_id)) weeksByPlayer.set(w.historical_player_id, [])
+    weeksByPlayer.get(w.historical_player_id)!.push(w.score)
+  }
+  const regSeasonNetByPlayer = new Map<string, { net: number; dropped: number }>()
+  for (const [playerId, scores] of weeksByPlayer) {
+    const sum = scores.reduce((a, b) => a + b, 0)
+    const min = Math.min(...scores)
+    regSeasonNetByPlayer.set(playerId, { net: sum - min, dropped: min })
+  }
+
   const overallChamp = standings.find((s) => s.rank === 1)
 
-  // Regular season net = final net score minus whatever Conference Title
-  // Week contributed. Null conf_title_score (2020, and 2021 where the
-  // Conference Titles sheet was tracked but every score was 0) means the
-  // regular season and overall champion are the same person.
   let regSeasonChamp: StandingRow | undefined
   let bestRegNet = -Infinity
   for (const s of standings) {
-    const regNet = s.net_score - (s.conf_title_score ?? 0)
-    if (regNet > bestRegNet) {
+    const regNet = regSeasonNetByPlayer.get(s.historical_player_id)?.net
+    if (regNet !== undefined && regNet > bestRegNet) {
       bestRegNet = regNet
       regSeasonChamp = s
     }
@@ -143,9 +171,8 @@ export default async function HistorySeasonPage({
           {standings.map((s, i) => {
             const isYou = s.historical_players?.user_id === user.id
             const isRegChamp =
-              !samePerson && s.historical_players?.id === regSeasonChamp?.historical_players?.id
-            const regNet =
-              s.conf_title_score !== null ? s.net_score - s.conf_title_score : null
+              !samePerson && s.historical_player_id === regSeasonChamp?.historical_player_id
+            const regInfo = regSeasonNetByPlayer.get(s.historical_player_id)
             return (
               <div
                 key={s.historical_players?.id ?? i}
@@ -166,9 +193,10 @@ export default async function HistorySeasonPage({
                   )}
                   {isYou && <span className="text-muted-foreground"> (you)</span>}
                   {isRegChamp && <span className="ml-1" title="Regular Season Champion">🎖️</span>}
-                  {regNet !== null && (
+                  {regInfo && s.conf_title_score !== null && (
                     <div className="text-xs text-muted-foreground">
-                      Reg. season: {regNet} + Conf. Title: {s.conf_title_score}
+                      Reg. season: {regInfo.net} (dropped {regInfo.dropped}) + Conf. Title:{' '}
+                      {s.conf_title_score}
                     </div>
                   )}
                 </span>

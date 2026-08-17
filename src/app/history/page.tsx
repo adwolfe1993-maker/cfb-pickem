@@ -13,8 +13,14 @@ type StandingRow = {
   team_name: string | null
   net_score: number
   rank: number
-  conf_title_score: number | null
+  historical_player_id: string
   historical_players: { canonical_name: string; user_id: string | null } | null
+}
+
+type WeeklyScoreRow = {
+  year: number
+  historical_player_id: string
+  score: number
 }
 
 export default async function HistoryIndexPage() {
@@ -36,17 +42,41 @@ export default async function HistoryIndexPage() {
   const { data: standingsData } = await supabase
     .from('historical_standings')
     .select(
-      'year, team_name, net_score, rank, conf_title_score, historical_players(canonical_name, user_id)'
+      'year, team_name, net_score, rank, historical_player_id, historical_players(canonical_name, user_id)'
     )
     .order('year', { ascending: false })
     .order('rank', { ascending: true })
 
   const standings = (standingsData ?? []) as unknown as StandingRow[]
 
+  const { data: weeklyData } = await supabase
+    .from('historical_weekly_scores')
+    .select('year, historical_player_id, score')
+
+  const weeklyScores = (weeklyData ?? []) as WeeklyScoreRow[]
+
   const byYear = new Map<number, StandingRow[]>()
   for (const s of standings) {
     if (!byYear.has(s.year)) byYear.set(s.year, [])
     byYear.get(s.year)!.push(s)
+  }
+
+  // Regular season net per player/year: sum of every regular-season weekly
+  // score minus the single lowest week (charter Sec 4.7), computed directly
+  // from real per-week data rather than derived from the stored Net Score
+  // column -- confirmed the original spreadsheet's own drop-week formula
+  // doesn't always drop the true minimum week.
+  const weeksByYearPlayer = new Map<string, number[]>()
+  for (const w of weeklyScores) {
+    const key = `${w.year}:${w.historical_player_id}`
+    if (!weeksByYearPlayer.has(key)) weeksByYearPlayer.set(key, [])
+    weeksByYearPlayer.get(key)!.push(w.score)
+  }
+  const regSeasonNetByYearPlayer = new Map<string, number>()
+  for (const [key, scores] of weeksByYearPlayer) {
+    const sum = scores.reduce((a, b) => a + b, 0)
+    const min = Math.min(...scores)
+    regSeasonNetByYearPlayer.set(key, sum - min)
   }
 
   return (
@@ -74,16 +104,14 @@ export default async function HistoryIndexPage() {
           const rows = byYear.get(season.year) ?? []
           const overallChamp = rows.find((r) => r.rank === 1)
 
-          // Regular season champion: highest (net_score - conf_title_score).
-          // When conf_title_score is null (2020, and 2021 where Conference
-          // Titles was tracked but every score was 0), this is identical to
-          // the overall champion.
           let regSeasonChamp: StandingRow | undefined
-          let regSeasonNet = -Infinity
+          let bestRegNet = -Infinity
           for (const r of rows) {
-            const net = r.net_score - (r.conf_title_score ?? 0)
-            if (net > regSeasonNet) {
-              regSeasonNet = net
+            const regNet = regSeasonNetByYearPlayer.get(
+              `${season.year}:${r.historical_player_id}`
+            )
+            if (regNet !== undefined && regNet > bestRegNet) {
+              bestRegNet = regNet
               regSeasonChamp = r
             }
           }

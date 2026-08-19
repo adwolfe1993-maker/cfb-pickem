@@ -49,12 +49,26 @@ export default async function HistoryIndexPage() {
 
   const standings = (standingsData ?? []) as unknown as StandingRow[]
 
-  const { data: weeklyData } = await supabase
-    .from('historical_weekly_scores')
-    .select('year, historical_player_id, score')
-    .limit(10000)
-
-  const weeklyScores = (weeklyData ?? []) as WeeklyScoreRow[]
+  // Supabase enforces a server-side max-rows cap per request regardless of
+  // a client-side .limit() -- historical_weekly_scores has 2118 rows, well
+  // past that cap, so a single request silently truncates before reaching
+  // the later-inserted years. Real pagination via .range() guarantees every
+  // row comes back.
+  const weeklyScores: WeeklyScoreRow[] = []
+  {
+    const pageSize = 1000
+    let from = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('historical_weekly_scores')
+        .select('year, historical_player_id, score')
+        .range(from, from + pageSize - 1)
+      if (error || !data || data.length === 0) break
+      weeklyScores.push(...(data as WeeklyScoreRow[]))
+      if (data.length < pageSize) break
+      from += pageSize
+    }
+  }
 
   const byYear = new Map<number, StandingRow[]>()
   for (const s of standings) {

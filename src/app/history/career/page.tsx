@@ -52,24 +52,35 @@ export default async function CareerStatsPage() {
     .from('historical_win_the_week')
     .select('historical_player_id')
 
-  const { data: dnCorrectData } = await supabase
-    .from('historical_dn_picks')
-    .select('historical_player_id, was_correct')
-    .eq('is_conference_title', false)
-    .not('was_correct', 'is', null)
-    .limit(10000)
+  // Supabase enforces a server-side max-rows cap per request (this project
+  // returns at most ~1000 rows regardless of a client-side .limit()) --
+  // historical_dn_picks has ~2000 relevant rows, so a single request
+  // silently truncates before reaching the later-inserted 2024/2025 data.
+  // Real pagination via .range() is the only way to guarantee every row
+  // comes back, whatever the server's per-request cap actually is.
+  type DnPickRow = { historical_player_id: string; year: number; was_correct: boolean | null }
+  const dnPicks: DnPickRow[] = []
+  {
+    const pageSize = 1000
+    let from = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from('historical_dn_picks')
+        .select('historical_player_id, year, was_correct')
+        .eq('is_conference_title', false)
+        .range(from, from + pageSize - 1)
+      if (error || !data || data.length === 0) break
+      dnPicks.push(...(data as DnPickRow[]))
+      if (data.length < pageSize) break
+      from += pageSize
+    }
+  }
 
   // Which years Bonus Team (D/N) was actually a real rule -- derived from
   // where picks exist at all, rather than hardcoded, so this stays correct
   // if more historical seasons get added later. Confirmed absent for 2019
   // (no Bonus Team sheet that year, matches the charter's "D/N added 2020").
-  const { data: dnYearsData } = await supabase
-    .from('historical_dn_picks')
-    .select('year')
-    .eq('is_conference_title', false)
-    .limit(10000)
-
-  const dnEligibleYears = new Set((dnYearsData ?? []).map((r) => r.year))
+  const dnEligibleYears = new Set(dnPicks.map((d) => d.year))
 
   // Participants per season, needed to convert a rank into a percentile.
   // Raw points aren't comparable across eras -- Core Four (2024-2025) meant
@@ -123,10 +134,10 @@ export default async function CareerStatsPage() {
     if (stat) stat.weeksWon += 1
   }
 
-  for (const d of dnCorrectData ?? []) {
+  for (const d of dnPicks) {
+    if (!d.was_correct) continue
     const stat = statsById.get(d.historical_player_id)
-    if (!stat || !d.was_correct) continue
-    stat.dnCorrect += 1
+    if (stat) stat.dnCorrect += 1
   }
 
   const rows = [...statsById.values()].sort((a, b) => {

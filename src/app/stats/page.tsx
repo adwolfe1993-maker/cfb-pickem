@@ -30,7 +30,7 @@ const STATS_PAGES = [
   {
     href: '/history',
     title: 'League History',
-    description: 'Final standings and Bonus Team picks from every season since 2020.',
+    description: 'Final standings and Bonus Team picks from every season since 2019.',
   },
 ]
 

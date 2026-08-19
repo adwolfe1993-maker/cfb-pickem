@@ -139,11 +139,11 @@ export default async function CareerStatsPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">All-Time Career Stats</h1>
         <p className="text-sm text-muted-foreground">
-          Aggregated across every season since 2020. Ranked by average finish percentile
-          per season, not raw points — Core Four (2024–2025) meant more games per week,
-          so a raw points average would unfairly favor those years. Percentile finish
-          rewards strong performances relative to that season&apos;s field, regardless of
-          era.
+          Aggregated across every season since the league&apos;s first year in 2019. Ranked
+          by average finish percentile per season, not raw points — Core Four (2024–2025)
+          meant more games per week, so a raw points average would unfairly favor those
+          years. Percentile finish rewards strong performances relative to that
+          season&apos;s field, regardless of era.
         </p>
       </div>
 
@@ -195,11 +195,11 @@ export default async function CareerStatsPage() {
       <p className="text-xs text-muted-foreground">
         Percentile finish: 100th = won the season, 0th = last place, scaled to that
         season&apos;s participant count. Win the Week is only tracked for 2024–2025 (it
-        wasn&apos;t a real rule before then). Bonus Team success rate is out of every
-        possible week in a season played, 2020–2025 (not offered in 2019) — a week with
-        no Bonus Team pick submitted counts as a miss, not an exclusion. Conference Title
-        Week picks aren&apos;t included, since outcomes weren&apos;t tracked for them in
-        the source data.
+        wasn&apos;t a real rule before then). Bonus Team wasn&apos;t part of the rules in
+        the league&apos;s first year (2019) — success rate is out of every possible week
+        in a season played from 2020 on, and a week with no Bonus Team pick submitted
+        counts as a miss, not an exclusion. Conference Title Week picks aren&apos;t
+        included, since outcomes weren&apos;t tracked for them in the source data.
       </p>
     </div>
   )

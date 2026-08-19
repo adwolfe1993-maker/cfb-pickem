@@ -88,7 +88,7 @@ export default async function HistoryIndexPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">League History</h1>
         <p className="text-sm text-muted-foreground">
-          Every season since 2020 — final standings, Bonus Team picks, and Win the Week
+          Every season since 2019 — final standings, Bonus Team picks, and Win the Week
           results, pulled from the original workbooks.
         </p>
       </div>

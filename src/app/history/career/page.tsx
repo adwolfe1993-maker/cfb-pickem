@@ -57,6 +57,7 @@ export default async function CareerStatsPage() {
     .select('historical_player_id, was_correct')
     .eq('is_conference_title', false)
     .not('was_correct', 'is', null)
+    .limit(10000)
 
   // Which years Bonus Team (D/N) was actually a real rule -- derived from
   // where picks exist at all, rather than hardcoded, so this stays correct
@@ -66,6 +67,7 @@ export default async function CareerStatsPage() {
     .from('historical_dn_picks')
     .select('year')
     .eq('is_conference_title', false)
+    .limit(10000)
 
   const dnEligibleYears = new Set((dnYearsData ?? []).map((r) => r.year))
 

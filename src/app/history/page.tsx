@@ -52,6 +52,7 @@ export default async function HistoryIndexPage() {
   const { data: weeklyData } = await supabase
     .from('historical_weekly_scores')
     .select('year, historical_player_id, score')
+    .limit(10000)
 
   const weeklyScores = (weeklyData ?? []) as WeeklyScoreRow[]
 

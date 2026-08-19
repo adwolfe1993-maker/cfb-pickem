@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 
 type StandingRow = {
+  year: number
   net_score: number
   rank: number
   historical_players: { id: string; canonical_name: string; user_id: string | null } | null
@@ -15,6 +16,7 @@ type CareerStat = {
   userId: string | null
   seasons: number
   careerNet: number
+  percentileSum: number
   championships: number
   weeksWon: number
   dnCorrect: number
@@ -34,7 +36,7 @@ export default async function CareerStatsPage() {
 
   const { data: standingsData } = await supabase
     .from('historical_standings')
-    .select('net_score, rank, historical_players(id, canonical_name, user_id)')
+    .select('year, net_score, rank, historical_players(id, canonical_name, user_id)')
 
   const standings = (standingsData ?? []) as unknown as StandingRow[]
 
@@ -48,6 +50,17 @@ export default async function CareerStatsPage() {
     .eq('is_conference_title', false)
     .not('was_correct', 'is', null)
 
+  // Participants per season, needed to convert a rank into a percentile.
+  // Raw points aren't comparable across eras -- Core Four (2024-2025) meant
+  // 24 games/week vs ~20 in earlier years, so someone who played mostly in
+  // 2024-2025 has a structurally higher point ceiling than someone from
+  // 2020-2023. Percentile finish sidesteps that entirely: a win is a win
+  // whether the season had 20 games or 24.
+  const participantsByYear = new Map<number, number>()
+  for (const s of standings) {
+    participantsByYear.set(s.year, (participantsByYear.get(s.year) ?? 0) + 1)
+  }
+
   const statsById = new Map<string, CareerStat>()
 
   for (const s of standings) {
@@ -60,6 +73,7 @@ export default async function CareerStatsPage() {
         userId: p.user_id,
         seasons: 0,
         careerNet: 0,
+        percentileSum: 0,
         championships: 0,
         weeksWon: 0,
         dnCorrect: 0,
@@ -67,8 +81,11 @@ export default async function CareerStatsPage() {
       })
     }
     const stat = statsById.get(p.id)!
+    const n = participantsByYear.get(s.year) ?? 1
+    const percentile = n > 1 ? 1 - (s.rank - 1) / (n - 1) : 1
     stat.seasons += 1
     stat.careerNet += s.net_score
+    stat.percentileSum += percentile
     if (s.rank === 1) stat.championships += 1
   }
 
@@ -85,9 +102,7 @@ export default async function CareerStatsPage() {
   }
 
   const rows = [...statsById.values()].sort((a, b) => {
-    const avgA = a.careerNet / a.seasons
-    const avgB = b.careerNet / b.seasons
-    return avgB - avgA
+    return b.percentileSum / b.seasons - a.percentileSum / a.seasons
   })
 
   return (
@@ -98,9 +113,11 @@ export default async function CareerStatsPage() {
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">All-Time Career Stats</h1>
         <p className="text-sm text-muted-foreground">
-          Aggregated across every season since 2020. Ranked by average net score per
-          season — rewards consistently strong performances, not just championships or
-          longevity.
+          Aggregated across every season since 2020. Ranked by average finish percentile
+          per season, not raw points — Core Four (2024–2025) meant more games per week,
+          so a raw points average would unfairly favor those years. Percentile finish
+          rewards strong performances relative to that season&apos;s field, regardless of
+          era.
         </p>
       </div>
 
@@ -109,7 +126,7 @@ export default async function CareerStatsPage() {
           {rows.map((r, i) => {
             const isYou = r.userId === user.id
             const dnRate = r.dnTotal > 0 ? Math.round((r.dnCorrect / r.dnTotal) * 100) : null
-            const avgNet = r.careerNet / r.seasons
+            const avgPercentile = Math.round((r.percentileSum / r.seasons) * 100)
             return (
               <div key={r.playerId} className="flex flex-col gap-1.5 py-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -119,8 +136,8 @@ export default async function CareerStatsPage() {
                     {isYou && <span className="text-muted-foreground"> (you)</span>}
                   </span>
                   <span className="flex items-baseline gap-2">
-                    <span className="font-semibold">{avgNet.toFixed(1)} avg/season</span>
-                    <span className="text-xs text-muted-foreground">{r.careerNet} total</span>
+                    <span className="font-semibold">{avgPercentile}th percentile</span>
+                    <span className="text-xs text-muted-foreground">{r.careerNet} career pts</span>
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -150,9 +167,10 @@ export default async function CareerStatsPage() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        Win the Week is only tracked for 2024–2025 (it wasn&apos;t a real rule before then).
-        Bonus Team success rate excludes Conference Title Week picks, which weren&apos;t
-        tracked for outcome in the source data.
+        Percentile finish: 100th = won the season, 0th = last place, scaled to that
+        season&apos;s participant count. Win the Week is only tracked for 2024–2025 (it
+        wasn&apos;t a real rule before then). Bonus Team success rate excludes Conference
+        Title Week picks, which weren&apos;t tracked for outcome in the source data.
       </p>
     </div>
   )

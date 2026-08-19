@@ -92,12 +92,20 @@ export default async function HistoryIndexPage() {
         </p>
       </div>
 
-      <Link
-        href="/history/career"
-        className="rounded-lg border border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/10"
-      >
-        View All-Time Career Stats →
-      </Link>
+      <div className="flex flex-col gap-2">
+        <Link
+          href="/history/career"
+          className="rounded-lg border border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/10"
+        >
+          View All-Time Career Stats →
+        </Link>
+        <Link
+          href="/awards"
+          className="rounded-lg border border-primary bg-primary/5 px-4 py-3 text-sm font-medium text-primary hover:bg-primary/10"
+        >
+          View Awards Ceremony →
+        </Link>
+      </div>
 
       <div className="flex flex-col gap-3">
         {(seasons ?? []).map((season) => {

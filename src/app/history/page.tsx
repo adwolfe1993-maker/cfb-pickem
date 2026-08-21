@@ -13,6 +13,7 @@ type StandingRow = {
   team_name: string | null
   net_score: number
   rank: number
+  tiebreaker_avg: number | null
   historical_player_id: string
   historical_players: { canonical_name: string; user_id: string | null } | null
 }
@@ -42,7 +43,7 @@ export default async function HistoryIndexPage() {
   const { data: standingsData } = await supabase
     .from('historical_standings')
     .select(
-      'year, team_name, net_score, rank, historical_player_id, historical_players(canonical_name, user_id)'
+      'year, team_name, net_score, rank, tiebreaker_avg, historical_player_id, historical_players(canonical_name, user_id)'
     )
     .order('year', { ascending: false })
     .order('rank', { ascending: true })
@@ -119,14 +120,25 @@ export default async function HistoryIndexPage() {
           const rows = byYear.get(season.year) ?? []
           const overallChamp = rows.find((r) => r.rank === 1)
 
+          // Regular Season Champion: highest regular-season Net Score wins.
+          // Ties broken explicitly by Tiebreaker average (charter Sec 10/15:
+          // Net Score, then Tiebreaker, then Gross Score) rather than relying
+          // on the incidental order `rows` happens to arrive in.
           let regSeasonChamp: StandingRow | undefined
           let bestRegNet = -Infinity
+          let bestRegTiebreaker = -Infinity
           for (const r of rows) {
             const regNet = regSeasonNetByYearPlayer.get(
               `${season.year}:${r.historical_player_id}`
             )
-            if (regNet !== undefined && regNet > bestRegNet) {
+            if (regNet === undefined) continue
+            const tiebreaker = r.tiebreaker_avg ?? -Infinity
+            const isBetter =
+              regNet > bestRegNet ||
+              (regNet === bestRegNet && tiebreaker > bestRegTiebreaker)
+            if (isBetter) {
               bestRegNet = regNet
+              bestRegTiebreaker = tiebreaker
               regSeasonChamp = r
             }
           }

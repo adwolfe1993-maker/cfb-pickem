@@ -54,7 +54,11 @@ export default async function HistoryIndexPage() {
   // a client-side .limit() -- historical_weekly_scores has 2118 rows, well
   // past that cap, so a single request silently truncates before reaching
   // the later-inserted years. Real pagination via .range() guarantees every
-  // row comes back.
+  // row comes back. `score` also comes back from Supabase as a string
+  // (numeric columns are serialized as strings to avoid float precision
+  // loss), so it's coerced to a real number immediately -- left as a
+  // string, `scores.reduce((a, b) => a + b, 0)` below silently does string
+  // concatenation instead of addition.
   const weeklyScores: WeeklyScoreRow[] = []
   {
     const pageSize = 1000
@@ -65,7 +69,13 @@ export default async function HistoryIndexPage() {
         .select('year, historical_player_id, score')
         .range(from, from + pageSize - 1)
       if (error || !data || data.length === 0) break
-      weeklyScores.push(...(data as WeeklyScoreRow[]))
+      weeklyScores.push(
+        ...data.map((d) => ({
+          year: d.year,
+          historical_player_id: d.historical_player_id,
+          score: Number(d.score),
+        }))
+      )
       if (data.length < pageSize) break
       from += pageSize
     }

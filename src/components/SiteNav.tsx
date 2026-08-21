@@ -22,6 +22,7 @@ export default async function SiteNav() {
     { href: '/', label: 'Home' },
     { href: '/profile', label: 'Profile' },
     { href: '/picks', label: 'My Picks' },
+    { href: '/season', label: 'Season' },
     { href: '/stats', label: 'Stats' },
     { href: '/history', label: 'League History' },
     { href: '/playlists', label: 'Playlists' },

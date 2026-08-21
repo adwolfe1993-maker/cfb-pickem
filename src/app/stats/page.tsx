@@ -8,24 +8,9 @@ import {
 
 const STATS_PAGES = [
   {
-    href: '/standings',
-    title: 'Standings',
-    description: 'Season leaderboard — net score, gross score, weeks won, drop week.',
-  },
-  {
-    href: '/win-the-week',
-    title: 'Win the Week',
-    description: 'Which participant won each week.',
-  },
-  {
-    href: '/dn-history',
-    title: 'Bonus Team History',
-    description: "Everyone's Bonus Team selections this season.",
-  },
-  {
-    href: '/similarities',
-    title: 'Similarities',
-    description: 'How often you and everyone else pick the same winners.',
+    href: '/season',
+    title: 'Current Season',
+    description: 'Standings, Win the Week, Bonus Team History, and Similarities.',
   },
   {
     href: '/history',

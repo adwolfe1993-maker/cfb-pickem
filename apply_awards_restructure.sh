@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+mkdir -p "src/app/awards"
+cat > "src/app/awards/page.tsx" << 'SCRIPT_EOF'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -493,3 +498,6 @@ export default async function AwardsPage() {
     </div>
   )
 }
+SCRIPT_EOF
+
+echo "Awards page written."

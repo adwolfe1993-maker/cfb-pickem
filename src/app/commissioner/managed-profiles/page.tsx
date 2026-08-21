@@ -100,8 +100,9 @@ export default function ManagedProfilesPage() {
       <h1 className="text-2xl font-semibold">Managed Profiles</h1>
       <p className="text-sm text-muted-foreground">
         For participants who share an inbox with someone else and can&apos;t get their own
-        sign-in code (e.g. a shared household email). The account below logs in normally and
-        picks up an extra profile to switch into — no separate login for the managed person.
+        sign-in code, like a shared household email. The account below logs in normally and
+        picks up an extra profile to switch into, so the managed person doesn&apos;t need a
+        separate login.
       </p>
 
       <Card>

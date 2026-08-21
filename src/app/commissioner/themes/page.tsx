@@ -202,7 +202,7 @@ export default function SeasonThemesPage() {
         <h1 className="mt-1 text-2xl font-semibold">Season Themes</h1>
         <p className="text-sm text-muted-foreground">
           Plan a theme per week ahead of time. Each one stays hidden from participants until
-          picks open for that week — no need for the week to exist yet.
+          picks open for that week, and the week doesn&apos;t even need to exist yet.
         </p>
       </div>
 

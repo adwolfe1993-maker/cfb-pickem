@@ -142,9 +142,9 @@ export default function InviteParticipantPage() {
       </Link>
       <h1 className="text-2xl font-semibold">Invite a Participant</h1>
       <p className="text-sm text-muted-foreground">
-        Add their email here, then just send them the site link — they enter their own email
-        to log in and set up their own profile. Public self-registration is otherwise blocked;
-        only addresses on this list can sign in.
+        Add their email here, then send them the site link. They&apos;ll enter their own
+        email to log in and set up their own profile. Public self-registration is otherwise
+        blocked, so only addresses on this list can sign in.
       </p>
 
       <Card>

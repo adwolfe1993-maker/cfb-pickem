@@ -15,7 +15,7 @@ const TOOLS = [
   {
     href: '/commissioner/invite',
     title: 'Invite Participants',
-    description: 'Add emails to the signup allowlist — this is the only way new accounts get created.',
+    description: "Add emails to the signup allowlist. It's the only way new accounts get created.",
   },
   {
     href: '/commissioner/managed-profiles',
@@ -30,7 +30,7 @@ const TOOLS = [
   {
     href: '/commissioner/themes',
     title: 'Season Themes',
-    description: 'Plan a theme per week ahead of time — revealed to participants once picks open.',
+    description: 'Plan a theme per week ahead of time. It stays hidden from participants until picks open.',
   },
   {
     href: '/commissioner/playlists',

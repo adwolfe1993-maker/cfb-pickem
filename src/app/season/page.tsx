@@ -456,7 +456,7 @@ export default async function SeasonPage() {
       <div>
         <h1 className="text-2xl font-semibold">{season.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Standings, weekly winners, Bonus Team picks, and Similarities — all in one place.
+          Standings, weekly winners, Bonus Team picks, and Similarities, all in one place.
         </p>
       </div>
 

@@ -153,10 +153,8 @@ export default async function CareerStatsPage() {
         <h1 className="mt-1 text-2xl font-semibold">All-Time Career Stats</h1>
         <p className="text-sm text-muted-foreground">
           Aggregated across every season since the league&apos;s first year in 2019. Ranked
-          by average finish percentile per season, not raw points — Core Four (2024–2025)
-          meant more games per week, so a raw points average would unfairly favor those
-          years. Percentile finish rewards strong performances relative to that
-          season&apos;s field, regardless of era.
+          by average finish percentile per season, not raw points. Percentile finish rewards
+          strong performances relative to that season&apos;s field, regardless of era.
         </p>
       </div>
 

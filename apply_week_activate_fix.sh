@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+mkdir -p "src/app/commissioner/seasons/[seasonId]/weeks/[weekId]"
+cat > "src/app/commissioner/seasons/[seasonId]/weeks/[weekId]/page.tsx" << 'SCRIPT_EOF'
 'use client'
 
 import { useEffect, useState, use } from 'react'
@@ -675,3 +680,6 @@ export default function WeekDetailPage({
     </div>
   )
 }
+SCRIPT_EOF
+
+echo "Week activation fix written."

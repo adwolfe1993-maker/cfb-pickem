@@ -125,6 +125,21 @@
   --sidebar-ring: oklch(0.62 0.14 18);
 }
 
+/* Ohio State vs. Michigan week: swap the brand maroon/gold for OSU's
+   actual Scarlet and Gray. No maize, no blue. */
+.rivalry-week {
+  --primary: #bb0000;
+  --primary-foreground: #ffffff;
+  --accent: #666666;
+  --accent-foreground: #ffffff;
+  --ring: #bb0000;
+  --sidebar-primary: #bb0000;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #666666;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-ring: #bb0000;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -9,6 +9,7 @@ type Row = {
   opponent: string
   osu_score: number
   opponent_score: number
+  historical_player_id: string
   historical_players: { canonical_name: string } | null
 }
 
@@ -32,16 +33,26 @@ export default async function WallOfShamePage() {
     redirect('/login')
   }
 
-  const { data } = await supabase
-    .from('osu_wall_of_shame')
-    .select('year, week, opponent, osu_score, opponent_score, historical_players(canonical_name)')
-    .order('year', { ascending: true })
-    .order('week', { ascending: true })
+  const [{ data }, { data: allPlayersData }] = await Promise.all([
+    supabase
+      .from('osu_wall_of_shame')
+      .select(
+        'year, week, opponent, osu_score, opponent_score, historical_player_id, historical_players(canonical_name)'
+      )
+      .order('year', { ascending: true })
+      .order('week', { ascending: true }),
+    supabase.from('historical_players').select('id, canonical_name'),
+  ])
 
   const rows = (data ?? []) as unknown as Row[]
 
-  // Combine every picker who took the same game into a single row, in the
-  // same chronological order the source list was compiled in.
+  const shamedIds = new Set(rows.map((r) => r.historical_player_id))
+  const allPlayers = (allPlayersData ?? []) as { id: string; canonical_name: string }[]
+  const cleanRecord = allPlayers
+    .filter((p) => !shamedIds.has(p.id))
+    .map((p) => p.canonical_name)
+    .sort((a, b) => a.localeCompare(b))
+
   const gamesByKey = new Map<string, Game>()
   const orderedKeys: string[] = []
   for (const r of rows) {
@@ -106,6 +117,10 @@ export default async function WallOfShamePage() {
           })}
         </CardContent>
       </Card>
+
+      <p className="text-xs text-muted-foreground">
+        Never once: {cleanRecord.join(', ')}.
+      </p>
     </div>
   )
 }

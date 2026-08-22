@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+mkdir -p "src/app/stats/families"
+cat > "src/app/stats/families/page.tsx" << 'SCRIPT_EOF'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -149,3 +154,6 @@ export default async function FamiliesPage() {
     </div>
   )
 }
+SCRIPT_EOF
+
+echo "Families page updated with member callouts."

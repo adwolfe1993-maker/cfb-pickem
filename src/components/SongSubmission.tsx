@@ -13,12 +13,36 @@ type Props = {
   weekStatus: string
 }
 
+const ARTIST_EASTER_EGGS: { patterns: string[]; line: string }[] = [
+  { patterns: ['taylor swift'], line: 'This song will never go out of style.' },
+  { patterns: ['kanye west', 'kanye'], line: 'And I always find something wrong.' },
+  { patterns: ['dua lipa'], line: "Training Season's over, but this week has just begun." },
+  { patterns: ['maggie rogers'], line: "We'll leave the light on for good picks." },
+  { patterns: ['the band'], line: 'Take a load off, Fanny — and take the points too.' },
+  { patterns: ['beatles'], line: 'Let it be... your Bonus Team pick.' },
+  { patterns: ['kendrick lamar', 'kendrick'], line: 'Sit down. Be humble. Pick better.' },
+  { patterns: ['kesha', 'ke$ha'], line: 'Man, I love Ke$ha!' },
+  { patterns: ['fetty wap', 'fetty'], line: '1738, YA.' },
+  { patterns: ['olivia rodrigo'], line: 'Bored in bed, making perfect picks instead.' },
+]
+
+function findArtistEasterEgg(song: string): string | null {
+  const normalized = song.toLowerCase().replace(/\$/g, 's')
+  for (const { patterns, line } of ARTIST_EASTER_EGGS) {
+    if (patterns.some((p) => normalized.includes(p.replace(/\$/g, 's')))) {
+      return line
+    }
+  }
+  return null
+}
+
 export default function SongSubmission({ weekId, userId, weekStatus }: Props) {
   const [song, setSong] = useState('')
   const [savedSong, setSavedSong] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [artistMessage, setArtistMessage] = useState<string | null>(null)
 
   const supabase = createClient()
   const isOpen = weekStatus === 'active'
@@ -55,7 +79,6 @@ export default function SongSubmission({ weekId, userId, weekStatus }: Props) {
     const trimmed = song.trim()
 
     if (!trimmed) {
-      // Empty save = withdraw a submission, not an error.
       if (savedSong) {
         setSaving(true)
         const { error: delError } = await supabase
@@ -87,12 +110,23 @@ export default function SongSubmission({ weekId, userId, weekStatus }: Props) {
       return
     }
     setSavedSong(trimmed)
+
+    const line = findArtistEasterEgg(trimmed)
+    if (line) {
+      setArtistMessage(line)
+      setTimeout(() => setArtistMessage(null), 3200)
+    }
   }
 
   if (loading) return null
 
   return (
     <Card>
+      {artistMessage && (
+        <div className="fixed left-1/2 top-[16%] z-[10000] -translate-x-1/2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg transition-opacity">
+          {artistMessage}
+        </div>
+      )}
       <CardHeader>
         <CardTitle className="text-base font-medium">🎵 Song for this week&apos;s playlist</CardTitle>
       </CardHeader>

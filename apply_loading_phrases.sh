@@ -1,3 +1,8 @@
+#!/bin/bash
+set -e
+
+mkdir -p "src/app"
+cat > "src/app/loading.tsx" << 'SCRIPT_EOF'
 const LOADING_PHRASES = [
   'Asking Grandpa who he likes this week...',
   'Waiting for the TV timeout to end...',
@@ -39,3 +44,6 @@ export default function Loading() {
     </div>
   )
 }
+SCRIPT_EOF
+
+echo "Loading phrases expanded to 24."

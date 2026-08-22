@@ -42,6 +42,11 @@ const STATS_PAGES = [
     title: 'Head-to-Head Rivalries',
     description: 'Pick any two participants and see their week-by-week series, plus the most lopsided and most even rivalries in the league.',
   },
+  {
+    href: '/stats/wall-of-shame',
+    title: 'Ohio State Wall of Shame',
+    description: 'Every recorded pick against the family team, in chronological order.',
+  },
 ]
 
 export default function StatsHubPage() {
@@ -68,4 +73,3 @@ export default function StatsHubPage() {
     </div>
   )
 }
-

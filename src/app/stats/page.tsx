@@ -47,6 +47,11 @@ const STATS_PAGES = [
     title: 'Ohio State Wall of Shame',
     description: 'Every recorded pick against the family team, in chronological order.',
   },
+  {
+    href: '/stats/families',
+    title: 'Family Bragging Rights',
+    description: 'Combined percentile finish across every season, family by family.',
+  },
 ]
 
 export default function StatsHubPage() {

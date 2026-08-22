@@ -17,6 +17,31 @@ const STATS_PAGES = [
     title: 'League History',
     description: 'Final standings and Bonus Team picks from every season since 2019.',
   },
+  {
+    href: '/stats/pick-trends',
+    title: 'Pick Trends',
+    description: 'The most popular Bonus Team and Highest Scoring Team picks league-wide, and how often they paid off.',
+  },
+  {
+    href: '/stats/streaks',
+    title: 'Iron Man',
+    description: 'Longest streaks of consecutive weeks with a submitted pick, across seasons.',
+  },
+  {
+    href: '/stats/consistency',
+    title: 'Consistency',
+    description: 'Who performs closest to the field every week, and who swings hardest from boom to bust.',
+  },
+  {
+    href: '/stats/season-swings',
+    title: 'Breakout & Letdown Seasons',
+    description: "The seasons where someone most exceeded, or most fell short of, their own career norm.",
+  },
+  {
+    href: '/stats/rivalries',
+    title: 'Head-to-Head Rivalries',
+    description: 'Pick any two participants and see their week-by-week series, plus the most lopsided and most even rivalries in the league.',
+  },
 ]
 
 export default function StatsHubPage() {
@@ -43,3 +68,4 @@ export default function StatsHubPage() {
     </div>
   )
 }
+
